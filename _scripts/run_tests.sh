@@ -5,6 +5,8 @@
 
 set -e
 
+set -v
+
 go test ./...
 go vet ./...
 

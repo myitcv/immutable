@@ -30,7 +30,7 @@ func DoIt(envFile string, envPkg string, licenseFile io.Reader) error {
 	base := filepath.Base(envFile)
 	basename := strings.TrimSuffix(base, ".go")
 
-	license, err := commentLicense(licenseFile)
+	license, err := commentReader(licenseFile, CommentTrailingNewline)
 	if err != nil {
 		return err
 	}
@@ -58,6 +58,8 @@ func DoIt(envFile string, envPkg string, licenseFile io.Reader) error {
 
 	g.file = f
 
+	g.commentMap = ast.NewCommentMap(g.fset, f, f.Comments)
+
 	return g.gen()
 }
 
@@ -76,6 +78,8 @@ type gen struct {
 
 	fset *token.FileSet
 	file *ast.File
+
+	commentMap ast.CommentMap
 
 	imports map[*ast.ImportSpec]struct{}
 
@@ -266,8 +270,8 @@ func (g *gen) genImmMaps() error {
 			ValType string
 		}{
 			Name:    m.name,
-			KeyType: g.typeString(m.keyTyp),
-			ValType: g.typeString(m.valTyp),
+			KeyType: g.exprString(m.keyTyp),
+			ValType: g.exprString(m.valTyp),
 		}
 
 		fm := exporter(m.name)
@@ -296,7 +300,7 @@ func (g *gen) genImmSlices() error {
 			Type string
 		}{
 			Name: s.name,
-			Type: g.typeString(s.typ),
+			Type: g.exprString(s.typ),
 		}
 
 		fm := exporter(s.name)
@@ -318,8 +322,21 @@ func (g *gen) genImmSlices() error {
 }
 
 type genField struct {
-	Name string
-	Type string
+	Name       string
+	Type       string
+	DocComment string
+}
+
+func (g *gen) commentTextFor(n ast.Node) string {
+	res := ""
+	comms := g.commentMap[n]
+	for _, cg := range comms {
+		for _, c := range cg.List {
+			res = res + c.Text + "\n"
+		}
+	}
+
+	return res
 }
 
 func (g *gen) genImmStructs() error {
@@ -332,17 +349,21 @@ func (g *gen) genImmStructs() error {
 			names := ""
 			sep := ""
 
-			typ := g.typeString(f.Type)
+			typ := g.exprString(f.Type)
+			tag := f.Tag.Value
 
 			for _, n := range f.Names {
 				names = names + sep + _FieldHidingPrefix + n.Name
 				sep = ", "
+
 				fields = append(fields, genField{
-					Name: n.Name,
-					Type: typ,
+					Name:       n.Name,
+					Type:       typ,
+					DocComment: g.commentTextFor(f),
 				})
+
 			}
-			g.pfln("%v %v", names, typ)
+			g.pfln("%v %v %v", names, typ, tag)
 		}
 
 		g.pln("")
@@ -392,6 +413,7 @@ func (g *gen) genImmStructs() error {
 			exp := exporter(f.Name)
 
 			g.pt(`
+			{{.Field.DocComment -}}
 			func (s *{{.TypeName}}) {{.Field.Name}}() {{.Field.Type}} {
 				return s.`+_FieldHidingPrefix+`{{.Field.Name}}
 			}
@@ -417,7 +439,7 @@ func (g *gen) genImmStructs() error {
 	return nil
 }
 
-func (g *gen) typeString(e ast.Expr) string {
+func (g *gen) exprString(e ast.Expr) string {
 	var buf bytes.Buffer
 
 	err := printer.Fprint(&buf, g.fset, e)
@@ -456,11 +478,30 @@ func (g *gen) pt(tmpl string, fm template.FuncMap, val interface{}) {
 	}
 }
 
-func commentLicense(licenseFile io.Reader) (string, error) {
+type commentOption uint8
+
+const (
+	CommentNone commentOption = 1 << iota
+	CommentTrailingNewline
+)
+
+func commentString(s string, opt commentOption) string {
+	buf := bytes.NewBuffer([]byte(s))
+
+	res, err := commentReader(buf, opt)
+	if err != nil {
+		// this really would be exceptional... because we passed in a buffer
+		panic(err)
+	}
+
+	return res
+}
+
+func commentReader(r io.Reader, opt commentOption) (string, error) {
 	res := ""
 
 	lastLineEmpty := false
-	scanner := bufio.NewScanner(licenseFile)
+	scanner := bufio.NewScanner(r)
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -474,9 +515,11 @@ func commentLicense(licenseFile io.Reader) (string, error) {
 		return "", err
 	}
 
-	// ensure we have a space before package
-	if !lastLineEmpty {
-		res = res + "\n"
+	if opt&CommentTrailingNewline == CommentTrailingNewline {
+		// ensure we have a space before package
+		if !lastLineEmpty {
+			res = res + "\n"
+		}
 	}
 
 	return res, nil
