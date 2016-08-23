@@ -13,16 +13,16 @@ func {{Export "New"}}{{Capitalise .Name}}() {{.Name}} {
 	}
 }
 
-func (m {{.Name}}) {{Choose "Len" "len_"}}() int {
+func (m {{.Name}}) Len() int {
 	return len(m.theMap)
 }
 
-func (m {{.Name}}) {{Export "Get"}}(k {{.KeyType}}) ({{.ValType}}, bool) {
+func (m {{.Name}}) Get(k {{.KeyType}}) ({{.ValType}}, bool) {
 	v, ok := m.theMap[k]
 	return v, ok
 }
 
-func (m {{.Name}}) {{Export "AsMutable"}}() {{.Name}} {
+func (m {{.Name}}) AsMutable() {{.Name}} {
 	res := m.dup()
 	res.mutable = true
 
@@ -43,27 +43,27 @@ func (m {{.Name}}) dup() {{.Name}} {
 	return res
 }
 
-func (m {{.Name}}) {{Export "AsImmutable"}}() {{.Name}} {
+func (m {{.Name}}) AsImmutable() {{.Name}} {
 	m.mutable = false
 
 	return m
 }
 
-func (m {{.Name}}) {{Choose "Range" "range_"}}() map[{{.KeyType}}]{{.ValType}} {
+func (m {{.Name}}) Range() map[{{.KeyType}}]{{.ValType}} {
 	return m.theMap
 }
 
-func (m {{.Name}}) {{Export "WithMutations"}}(f func(mi {{.Name}})) {{.Name}} {
-	res := m.{{Export "AsMutable"}}()
+func (m {{.Name}}) WithMutations(f func(mi {{.Name}})) {{.Name}} {
+	res := m.AsMutable()
 	f(res)
-	res = res.{{Export "AsImmutable"}}()
+	res = res.AsImmutable()
 
 	// TODO optimise here if the maps are identical?
 
 	return res
 }
 
-func (m {{.Name}}) {{Export "Set"}}(k {{.KeyType}}, v {{.ValType}}) {{.Name}} {
+func (m {{.Name}}) Set(k {{.KeyType}}, v {{.ValType}}) {{.Name}} {
 	if m.mutable {
 		m.theMap[k] = v
 		return m
