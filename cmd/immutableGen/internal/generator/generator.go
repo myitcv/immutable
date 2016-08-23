@@ -1,0 +1,320 @@
+package generator
+
+import (
+	"bytes"
+	"fmt"
+	"go/ast"
+	"go/format"
+	"go/parser"
+	"go/printer"
+	"go/token"
+	"os"
+	"path/filepath"
+	"strings"
+	"text/template"
+)
+
+const (
+	_GenFilePrefix   = "gen_"
+	_GenFileSuffix   = "_immutable.go"
+	_ImmTypeIdPrefix = "Imm_"
+)
+
+func DoIt(envFile string, envPkg string) error {
+
+	path := filepath.Dir(envFile)
+	base := filepath.Base(envFile)
+	basename := strings.TrimSuffix(base, ".go")
+
+	g := &gen{
+		path:    path,
+		envFile: envFile,
+		envPkg:  envPkg,
+
+		envBase: basename,
+
+		fset: token.NewFileSet(),
+
+		output: bytes.NewBuffer(nil),
+
+		imports: make(map[*ast.ImportSpec]struct{}),
+	}
+
+	f, err := parser.ParseFile(g.fset, envFile, nil, parser.ParseComments)
+	if err != nil {
+		return err
+	}
+
+	g.file = f
+
+	return g.gen()
+}
+
+type gen struct {
+	path string
+
+	envFile string
+	envPkg  string
+
+	output *bytes.Buffer
+
+	// the envFile without its .go suffix
+	envBase string
+
+	fset *token.FileSet
+	file *ast.File
+
+	imports map[*ast.ImportSpec]struct{}
+
+	immMaps    []immMap
+	immSlices  []immSlice
+	immStructs []immStruct
+}
+
+func (g *gen) addImports(exp ast.Expr) {
+	finder := &importFinder{
+		imports: g.file.Imports,
+		matches: make(map[*ast.ImportSpec]struct{}),
+	}
+
+	ast.Walk(finder, exp)
+
+	for i, v := range finder.matches {
+		g.imports[i] = v
+	}
+}
+
+type immMap struct {
+	name   string
+	dec    *ast.GenDecl
+	typ    ast.Expr
+	keyTyp ast.Expr
+	valTyp ast.Expr
+}
+
+type immSlice struct {
+	name string
+	typ  ast.Expr
+	dec  *ast.GenDecl
+}
+
+type immStruct struct {
+	name string
+	dec  *ast.GenDecl
+}
+
+func (g *gen) gen() error {
+	// 1. parse the envFile
+	// 2. gather the maps, slices and structs we need to make immutable
+	// 3. calculate from 2 the imports required
+	// 4. generate gen_$(basename $GOFILE .go)_immutable.go file
+
+	err := g.gatherImmTypes()
+	if err != nil {
+		return err
+	}
+
+	err = g.genImmTypes()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (g *gen) gatherImmTypes() error {
+
+	for _, d := range g.file.Decls {
+
+		gd, ok := d.(*ast.GenDecl)
+		if !ok || gd.Tok != token.TYPE {
+			continue
+		}
+
+		if len(gd.Specs) != 1 {
+			panic("myitcv needs to better understand go/ast")
+		}
+
+		ts := gd.Specs[0].(*ast.TypeSpec)
+
+		typName := ts.Name.Name
+
+		if !strings.HasPrefix(typName, _ImmTypeIdPrefix) {
+			continue
+		}
+
+		name := strings.TrimPrefix(typName, _ImmTypeIdPrefix)
+
+		switch typ := ts.Type.(type) {
+		case *ast.MapType:
+			g.immMaps = append(g.immMaps, immMap{
+				name:   name,
+				dec:    gd,
+				typ:    typ,
+				keyTyp: typ.Key,
+				valTyp: typ.Value,
+			})
+
+			g.addImports(ts.Type)
+
+		case *ast.ArrayType:
+			if typ.Len == nil {
+				g.immSlices = append(g.immSlices, immSlice{
+					name: name,
+					dec:  gd,
+					typ:  typ,
+				})
+			}
+
+			g.addImports(ts.Type)
+
+		case *ast.StructType:
+			g.immStructs = append(g.immStructs, immStruct{
+				name: name,
+				dec:  gd,
+			})
+
+			g.addImports(ts.Type)
+
+		}
+	}
+
+	return nil
+}
+
+func (g *gen) genImmTypes() error {
+
+	if len(g.immStructs) == 0 && len(g.immSlices) == 0 && len(g.immMaps) == 0 {
+		return nil
+	}
+
+	g.pf("package %v\n", g.envPkg)
+
+	if len(g.imports) > 0 {
+		g.pln("import (")
+		for i := range g.imports {
+			if i.Name != nil {
+				g.pfln("%v %v", i.Name.Name, i.Path.Value)
+			} else {
+				g.pfln("%v", i.Path.Value)
+			}
+		}
+		g.pln(")")
+	}
+
+	err := g.genImmMaps()
+	if err != nil {
+		return err
+	}
+	err = g.genImmSlices()
+	if err != nil {
+		return err
+	}
+
+	source := g.output.Bytes()
+
+	toWrite := source
+
+	formatted, err := format.Source(source)
+	if err == nil {
+		toWrite = formatted
+	} else {
+		fmt.Printf("Failed to format: %v\n", err)
+	}
+
+	ofName := filepath.Join(g.path, _GenFilePrefix+g.envBase+_GenFileSuffix)
+	of, err := os.Create(ofName)
+	if err != nil {
+		return err
+	}
+
+	_, err = of.Write(toWrite)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (g *gen) genImmMaps() error {
+
+	for _, m := range g.immMaps {
+		blanks := struct {
+			Name    string
+			KeyType string
+			ValType string
+		}{
+			Name:    m.name,
+			KeyType: g.typeString(m.keyTyp),
+			ValType: g.typeString(m.valTyp),
+		}
+
+		fm := exporter(m.name)
+
+		tmpl := template.New("immmap")
+		tmpl.Funcs(fm)
+		_, err := tmpl.Parse(ImmMapTmpl)
+		if err != nil {
+			return err
+		}
+
+		err = tmpl.Execute(g.output, blanks)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (g *gen) genImmSlices() error {
+
+	for _, s := range g.immSlices {
+		blanks := struct {
+			Name string
+			Type string
+		}{
+			Name: s.name,
+			Type: g.typeString(s.typ),
+		}
+
+		fm := exporter(s.name)
+
+		tmpl := template.New("immslice")
+		tmpl.Funcs(fm)
+		_, err := tmpl.Parse(ImmSliceTmpl)
+		if err != nil {
+			return err
+		}
+
+		err = tmpl.Execute(g.output, blanks)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (g *gen) typeString(e ast.Expr) string {
+	var buf bytes.Buffer
+
+	err := printer.Fprint(&buf, g.fset, e)
+	if err != nil {
+		panic(err)
+	}
+
+	return buf.String()
+}
+
+func (g *gen) pln(i ...interface{}) {
+	fmt.Fprintln(g.output, i...)
+}
+
+func (g *gen) pf(format string, i ...interface{}) {
+	fmt.Fprintf(g.output, format, i...)
+}
+
+func (g *gen) pfln(format string, i ...interface{}) {
+	g.pf(format+"\n", i...)
+}
