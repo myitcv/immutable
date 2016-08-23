@@ -11,15 +11,15 @@ func {{Export "New"}}{{Capitalise .Name}}() {{.Name}} {
 	return {{.Name}}{}
 }
 
-func (m {{.Name}}) {{Choose "Len" "len_"}}() int {
+func (m {{.Name}}) Len() int {
 	return len(m.theSlice)
 }
 
-func (m {{.Name}}) {{Export "Get"}}(i int) {{.Type}} {
+func (m {{.Name}}) Get(i int) {{.Type}} {
 	return m.theSlice[i]
 }
 
-func (m {{.Name}}) {{Export "AsMutable"}}() {{.Name}} {
+func (m {{.Name}}) AsMutable() {{.Name}} {
 	res := m.dup()
 	res.mutable = true
 
@@ -40,27 +40,27 @@ func (m {{.Name}}) dup() {{.Name}} {
 	return res
 }
 
-func (m {{.Name}}) {{Export "AsImmutable"}}() {{.Name}} {
+func (m {{.Name}}) AsImmutable() {{.Name}} {
 	m.mutable = false
 
 	return m
 }
 
-func (m {{.Name}}) {{Choose "Range" "range_"}}() []{{.Type}} {
+func (m {{.Name}}) Range() []{{.Type}} {
 	return m.theSlice
 }
 
-func (m {{.Name}}) {{Export "WithMutations"}}(f func(mi {{.Name}})) {{.Name}} {
-	res := m.{{Export "AsMutable"}}()
+func (m {{.Name}}) WithMutations(f func(mi {{.Name}})) {{.Name}} {
+	res := m.AsMutable()
 	f(res)
-	res = res.{{Export "AsImmutable"}}()
+	res = res.AsImmutable()
 
 	// TODO optimise here if the maps are identical?
 
 	return res
 }
 
-func (m {{.Name}}) {{Export "Set"}}(i int, v {{.Type}}) {{.Name}} {
+func (m {{.Name}}) Set(i int, v {{.Type}}) {{.Name}} {
 	if m.mutable {
 		m.theSlice[i] = v
 		return m
@@ -73,6 +73,23 @@ func (m {{.Name}}) {{Export "Set"}}(i int, v {{.Type}}) {{.Name}} {
 
 	res := m.dup()
 	res.theSlice[i] = v
+
+	return res
+}
+
+func (m {{.Name}}) Append(v ...{{.Type}}) {{.Name}} {
+	if m.mutable {
+		m.theSlice = append(m.theSlice, v...)
+		return m
+	}
+
+	// TODO: work out a way of enabling this
+	// if m.theSlice[i] == v {
+	// 	return m
+	// }
+
+	res := m.dup()
+	res.theSlice = append(res.theSlice, v...)
 
 	return res
 }

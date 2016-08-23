@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"go/ast"
@@ -8,6 +9,7 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,13 +20,20 @@ const (
 	_GenFilePrefix   = "gen_"
 	_GenFileSuffix   = "_immutable.go"
 	_ImmTypeIdPrefix = "Imm_"
+
+	_FieldHidingPrefix = "_"
 )
 
-func DoIt(envFile string, envPkg string) error {
+func DoIt(envFile string, envPkg string, licenseFile io.Reader) error {
 
 	path := filepath.Dir(envFile)
 	base := filepath.Base(envFile)
 	basename := strings.TrimSuffix(base, ".go")
+
+	license, err := commentLicense(licenseFile)
+	if err != nil {
+		return err
+	}
 
 	g := &gen{
 		path:    path,
@@ -32,6 +41,8 @@ func DoIt(envFile string, envPkg string) error {
 		envPkg:  envPkg,
 
 		envBase: basename,
+
+		license: license,
 
 		fset: token.NewFileSet(),
 
@@ -60,6 +71,8 @@ type gen struct {
 
 	// the envFile without its .go suffix
 	envBase string
+
+	license string
 
 	fset *token.FileSet
 	file *ast.File
@@ -101,6 +114,7 @@ type immSlice struct {
 type immStruct struct {
 	name string
 	dec  *ast.GenDecl
+	st   *ast.StructType
 }
 
 func (g *gen) gen() error {
@@ -162,7 +176,7 @@ func (g *gen) gatherImmTypes() error {
 				g.immSlices = append(g.immSlices, immSlice{
 					name: name,
 					dec:  gd,
-					typ:  typ,
+					typ:  typ.Elt,
 				})
 			}
 
@@ -172,6 +186,7 @@ func (g *gen) gatherImmTypes() error {
 			g.immStructs = append(g.immStructs, immStruct{
 				name: name,
 				dec:  gd,
+				st:   typ,
 			})
 
 			g.addImports(ts.Type)
@@ -187,6 +202,8 @@ func (g *gen) genImmTypes() error {
 	if len(g.immStructs) == 0 && len(g.immSlices) == 0 && len(g.immMaps) == 0 {
 		return nil
 	}
+
+	g.pf(g.license)
 
 	g.pf("package %v\n", g.envPkg)
 
@@ -207,6 +224,10 @@ func (g *gen) genImmTypes() error {
 		return err
 	}
 	err = g.genImmSlices()
+	if err != nil {
+		return err
+	}
+	err = g.genImmStructs()
 	if err != nil {
 		return err
 	}
@@ -296,6 +317,106 @@ func (g *gen) genImmSlices() error {
 	return nil
 }
 
+type genField struct {
+	Name string
+	Type string
+}
+
+func (g *gen) genImmStructs() error {
+	for _, s := range g.immStructs {
+		g.pfln("type %v struct {", s.name)
+
+		var fields []genField
+
+		for _, f := range s.st.Fields.List {
+			names := ""
+			sep := ""
+
+			typ := g.typeString(f.Type)
+
+			for _, n := range f.Names {
+				names = names + sep + _FieldHidingPrefix + n.Name
+				sep = ", "
+				fields = append(fields, genField{
+					Name: n.Name,
+					Type: typ,
+				})
+			}
+			g.pfln("%v %v", names, typ)
+		}
+
+		g.pln("")
+		g.pln("mutable bool")
+
+		g.pfln("}")
+
+		exp := exporter(s.name)
+
+		g.pt(`
+		func {{Export "New"}}{{Capitalise .}}() *{{.}} {
+			return &{{.}}{}
+		}
+
+		func (s *{{.}}) AsMutable() *{{.}} {
+			res := *s
+			res.mutable = true
+			return &res
+		}
+
+		func (s *{{.}}) AsImmutable() *{{.}} {
+			s.mutable = false
+			return s
+		}
+
+		func (s *{{.}}) WithMutations(f func(si *{{.}})) *{{.}} {
+			res := s.AsMutable()
+			f(res)
+			res = res.AsImmutable()
+			if *res == *s {
+				return s
+			}
+
+			return res
+		}
+		`, exp, s.name)
+
+		for _, f := range fields {
+			tmpl := struct {
+				TypeName string
+				Field    genField
+			}{
+				TypeName: s.name,
+				Field:    f,
+			}
+
+			exp := exporter(f.Name)
+
+			g.pt(`
+			func (s *{{.TypeName}}) {{.Field.Name}}() {{.Field.Type}} {
+				return s.`+_FieldHidingPrefix+`{{.Field.Name}}
+			}
+
+			func (s *{{.TypeName}}) {{Export "Set"}}{{Capitalise .Field.Name}}(n {{.Field.Type}}) *{{.TypeName}} {
+				// TODO: see if we can make this work
+				// if n == s.{{.Field.Name}} {
+				// 	return s
+				// }
+
+				if s.mutable {
+					s.`+_FieldHidingPrefix+`{{.Field.Name}} = n
+					return s
+				}
+
+				res := *s
+				res.`+_FieldHidingPrefix+`{{.Field.Name}} = n
+				return &res
+			}
+			`, exp, tmpl)
+		}
+	}
+	return nil
+}
+
 func (g *gen) typeString(e ast.Expr) string {
 	var buf bytes.Buffer
 
@@ -317,4 +438,46 @@ func (g *gen) pf(format string, i ...interface{}) {
 
 func (g *gen) pfln(format string, i ...interface{}) {
 	g.pf(format+"\n", i...)
+}
+
+func (g *gen) pt(tmpl string, fm template.FuncMap, val interface{}) {
+
+	t := template.New("tmp")
+	t.Funcs(fm)
+
+	_, err := t.Parse(tmpl)
+	if err != nil {
+		panic(err)
+	}
+
+	err = t.Execute(g.output, val)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func commentLicense(licenseFile io.Reader) (string, error) {
+	res := ""
+
+	lastLineEmpty := false
+	scanner := bufio.NewScanner(licenseFile)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			lastLineEmpty = true
+		}
+		res = res + fmt.Sprintln("//", line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	// ensure we have a space before package
+	if !lastLineEmpty {
+		res = res + "\n"
+	}
+
+	return res, nil
 }

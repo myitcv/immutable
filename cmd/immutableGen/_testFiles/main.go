@@ -1,14 +1,13 @@
 package main
 
-import (
-	"bytes"
-	"fmt"
-)
-
-type Imm_myMap map[string]bytes.Buffer
+type Imm_myMap map[string]int
 
 type Imm_Slice []*string
 
+type Imm_myStruct struct {
+	Name, surname string
+	age           int
+}
+
 func main() {
-	fmt.Println("vim-go")
 }
