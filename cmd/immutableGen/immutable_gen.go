@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"io"
+	"io/ioutil"
 	"os"
 
 	"github.com/myitcv/immutable/cmd/immutableGen/internal/core"
@@ -28,18 +28,18 @@ func main() {
 		panic("Env not correct; missing " + _GoPackage)
 	}
 
-	var licenseFile io.Reader
+	licenseHeader := ""
 
 	if *fLicenseFile != "" {
-		lf, err := os.Open(*fLicenseFile)
+		byts, err := ioutil.ReadFile(*fLicenseFile)
 		if err != nil {
 			panic(err)
 		}
 
-		licenseFile = lf
+		licenseHeader = string(byts)
 	}
 
-	err := core.Execute(envFile, envPkg, licenseFile)
+	err := core.Execute(envFile, envPkg, licenseHeader)
 	if err != nil {
 		panic(err)
 	}

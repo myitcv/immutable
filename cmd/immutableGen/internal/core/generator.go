@@ -9,7 +9,6 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,16 +21,13 @@ const (
 	fieldHidingPrefix = "_"
 )
 
-func Execute(file string, pkg string, licenseFile io.Reader) error {
+func Execute(file string, pkg string, licenseHeader string) error {
 
 	path := filepath.Dir(file)
 	base := filepath.Base(file)
 	basename := strings.TrimSuffix(base, ".go")
 
-	license, err := commentReader(licenseFile, CommentTrailingNewline)
-	if err != nil {
-		return err
-	}
+	license := commentString(licenseHeader)
 
 	g := &generator{
 		path:    path,
@@ -476,30 +472,13 @@ func (g *generator) pt(tmpl string, fm template.FuncMap, val interface{}) {
 	}
 }
 
-type commentOption uint8
-
-const (
-	CommentNone commentOption = 1 << iota
-	CommentTrailingNewline
-)
-
-func commentString(s string, opt commentOption) string {
-	buf := bytes.NewBuffer([]byte(s))
-
-	res, err := commentReader(buf, opt)
-	if err != nil {
-		// this really would be exceptional... because we passed in a buffer
-		panic(err)
-	}
-
-	return res
-}
-
-func commentReader(r io.Reader, opt commentOption) (string, error) {
+func commentString(r string) string {
 	res := ""
 
+	buf := bytes.NewBuffer([]byte(r))
+
 	lastLineEmpty := false
-	scanner := bufio.NewScanner(r)
+	scanner := bufio.NewScanner(buf)
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -510,15 +489,14 @@ func commentReader(r io.Reader, opt commentOption) (string, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return "", err
+		// this really would be exceptional... because we passed in a string
+		panic(err)
 	}
 
-	if opt&CommentTrailingNewline == CommentTrailingNewline {
-		// ensure we have a space before package
-		if !lastLineEmpty {
-			res = res + "\n"
-		}
+	// ensure we have a space before package
+	if !lastLineEmpty {
+		res = res + "\n"
 	}
 
-	return res, nil
+	return res
 }
