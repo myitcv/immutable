@@ -7,4 +7,5 @@ if [ ! -z "$(git status --porcelain)" ]
 then
   echo "Git is not clean"
   git status
+  exit 1
 fi
