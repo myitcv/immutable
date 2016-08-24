@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/myitcv/immutable/cmd/immutableGen/internal/generator"
+	"github.com/myitcv/immutable/cmd/immutableGen/internal/core"
 )
 
 const (
@@ -39,7 +39,7 @@ func main() {
 		licenseFile = lf
 	}
 
-	err := generator.DoIt(envFile, envPkg, licenseFile)
+	err := core.Execute(envFile, envPkg, licenseFile)
 	if err != nil {
 		panic(err)
 	}

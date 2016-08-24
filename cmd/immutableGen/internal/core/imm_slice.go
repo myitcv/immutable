@@ -1,6 +1,6 @@
-package generator
+package core
 
-const ImmSliceTmpl = `
+const immSliceTmpl = `
 type {{.Name}} struct {
 	theSlice []{{.Type}}
 

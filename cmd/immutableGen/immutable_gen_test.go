@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/myitcv/immutable/cmd/immutableGen/internal/generator"
+	"github.com/myitcv/immutable/cmd/immutableGen/internal/core"
 )
 
 const (
@@ -19,7 +19,7 @@ func TestBasic(t *testing.T) {
 
 	target := filepath.Join(TestFiles, "main.go")
 
-	err := generator.DoIt(target, "main", license)
+	err := core.Execute(target, "main", license)
 
 	if err != nil {
 		t.Fatalf("Err should have been nil: %v\n", err)
