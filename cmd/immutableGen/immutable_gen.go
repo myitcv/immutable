@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"io"
 	"os"
 
 	"github.com/myitcv/immutable/cmd/immutableGen/internal/generator"
@@ -27,7 +28,7 @@ func main() {
 		panic("Env not correct; missing " + _GoPackage)
 	}
 
-	var licenseFile *os.File
+	var licenseFile io.Reader
 
 	if *fLicenseFile != "" {
 		lf, err := os.Open(*fLicenseFile)

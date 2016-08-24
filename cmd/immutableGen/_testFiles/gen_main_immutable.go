@@ -175,8 +175,8 @@ func (m Slice) Append(v ...*string) Slice {
 }
 
 type myStruct struct {
-	_Name, _surname string
-	_age            int
+	_Name, _surname string `tag:"value"`
+	_age            int    `tag:"age"`
 
 	mutable bool
 }
@@ -207,6 +207,13 @@ func (s *myStruct) WithMutations(f func(si *myStruct)) *myStruct {
 	return res
 }
 
+// my field comment
+//somethingspecial
+/*
+
+	Heelo
+
+*/
 func (s *myStruct) Name() string {
 	return s._Name
 }
@@ -227,6 +234,13 @@ func (s *myStruct) SetName(n string) *myStruct {
 	return &res
 }
 
+// my field comment
+//somethingspecial
+/*
+
+	Heelo
+
+*/
 func (s *myStruct) surname() string {
 	return s._surname
 }
