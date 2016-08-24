@@ -1,4 +1,4 @@
-package generator
+package core
 
 import (
 	"bufio"
@@ -14,20 +14,18 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	gen "github.com/myitcv/immutable/gen"
 )
 
 const (
-	_GenFilePrefix   = "gen_"
-	_GenFileSuffix   = "_immutable.go"
-	_ImmTypeIdPrefix = "Imm_"
-
-	_FieldHidingPrefix = "_"
+	fieldHidingPrefix = "_"
 )
 
-func DoIt(envFile string, envPkg string, licenseFile io.Reader) error {
+func Execute(file string, pkg string, licenseFile io.Reader) error {
 
-	path := filepath.Dir(envFile)
-	base := filepath.Base(envFile)
+	path := filepath.Dir(file)
+	base := filepath.Base(file)
 	basename := strings.TrimSuffix(base, ".go")
 
 	license, err := commentReader(licenseFile, CommentTrailingNewline)
@@ -35,10 +33,10 @@ func DoIt(envFile string, envPkg string, licenseFile io.Reader) error {
 		return err
 	}
 
-	g := &gen{
+	g := &generator{
 		path:    path,
-		envFile: envFile,
-		envPkg:  envPkg,
+		envFile: file,
+		envPkg:  pkg,
 
 		envBase: basename,
 
@@ -51,7 +49,7 @@ func DoIt(envFile string, envPkg string, licenseFile io.Reader) error {
 		imports: make(map[*ast.ImportSpec]struct{}),
 	}
 
-	f, err := parser.ParseFile(g.fset, envFile, nil, parser.ParseComments)
+	f, err := parser.ParseFile(g.fset, file, nil, parser.ParseComments)
 	if err != nil {
 		return err
 	}
@@ -63,7 +61,7 @@ func DoIt(envFile string, envPkg string, licenseFile io.Reader) error {
 	return g.gen()
 }
 
-type gen struct {
+type generator struct {
 	path string
 
 	envFile string
@@ -88,7 +86,7 @@ type gen struct {
 	immStructs []immStruct
 }
 
-func (g *gen) addImports(exp ast.Expr) {
+func (g *generator) addImports(exp ast.Expr) {
 	finder := &importFinder{
 		imports: g.file.Imports,
 		matches: make(map[*ast.ImportSpec]struct{}),
@@ -121,7 +119,7 @@ type immStruct struct {
 	st   *ast.StructType
 }
 
-func (g *gen) gen() error {
+func (g *generator) gen() error {
 	// 1. parse the envFile
 	// 2. gather the maps, slices and structs we need to make immutable
 	// 3. calculate from 2 the imports required
@@ -140,7 +138,7 @@ func (g *gen) gen() error {
 	return nil
 }
 
-func (g *gen) gatherImmTypes() error {
+func (g *generator) gatherImmTypes() error {
 
 	for _, d := range g.file.Decls {
 
@@ -157,11 +155,11 @@ func (g *gen) gatherImmTypes() error {
 
 		typName := ts.Name.Name
 
-		if !strings.HasPrefix(typName, _ImmTypeIdPrefix) {
+		if !strings.HasPrefix(typName, gen.ImmTypeIdPrefix) {
 			continue
 		}
 
-		name := strings.TrimPrefix(typName, _ImmTypeIdPrefix)
+		name := strings.TrimPrefix(typName, gen.ImmTypeIdPrefix)
 
 		switch typ := ts.Type.(type) {
 		case *ast.MapType:
@@ -201,7 +199,7 @@ func (g *gen) gatherImmTypes() error {
 	return nil
 }
 
-func (g *gen) genImmTypes() error {
+func (g *generator) genImmTypes() error {
 
 	if len(g.immStructs) == 0 && len(g.immSlices) == 0 && len(g.immMaps) == 0 {
 		return nil
@@ -247,7 +245,7 @@ func (g *gen) genImmTypes() error {
 		fmt.Printf("Failed to format: %v\n", err)
 	}
 
-	ofName := filepath.Join(g.path, _GenFilePrefix+g.envBase+_GenFileSuffix)
+	ofName := filepath.Join(g.path, gen.GenFilePrefix+g.envBase+gen.GenFileSuffix)
 	of, err := os.Create(ofName)
 	if err != nil {
 		return err
@@ -261,7 +259,7 @@ func (g *gen) genImmTypes() error {
 	return nil
 }
 
-func (g *gen) genImmMaps() error {
+func (g *generator) genImmMaps() error {
 
 	for _, m := range g.immMaps {
 		blanks := struct {
@@ -278,7 +276,7 @@ func (g *gen) genImmMaps() error {
 
 		tmpl := template.New("immmap")
 		tmpl.Funcs(fm)
-		_, err := tmpl.Parse(ImmMapTmpl)
+		_, err := tmpl.Parse(immMapTmpl)
 		if err != nil {
 			return err
 		}
@@ -292,7 +290,7 @@ func (g *gen) genImmMaps() error {
 	return nil
 }
 
-func (g *gen) genImmSlices() error {
+func (g *generator) genImmSlices() error {
 
 	for _, s := range g.immSlices {
 		blanks := struct {
@@ -307,7 +305,7 @@ func (g *gen) genImmSlices() error {
 
 		tmpl := template.New("immslice")
 		tmpl.Funcs(fm)
-		_, err := tmpl.Parse(ImmSliceTmpl)
+		_, err := tmpl.Parse(immSliceTmpl)
 		if err != nil {
 			return err
 		}
@@ -327,7 +325,7 @@ type genField struct {
 	DocComment string
 }
 
-func (g *gen) commentTextFor(n ast.Node) string {
+func (g *generator) commentTextFor(n ast.Node) string {
 	res := ""
 	comms := g.commentMap[n]
 	for _, cg := range comms {
@@ -339,7 +337,7 @@ func (g *gen) commentTextFor(n ast.Node) string {
 	return res
 }
 
-func (g *gen) genImmStructs() error {
+func (g *generator) genImmStructs() error {
 	for _, s := range g.immStructs {
 		g.pfln("type %v struct {", s.name)
 
@@ -353,7 +351,7 @@ func (g *gen) genImmStructs() error {
 			tag := f.Tag.Value
 
 			for _, n := range f.Names {
-				names = names + sep + _FieldHidingPrefix + n.Name
+				names = names + sep + fieldHidingPrefix + n.Name
 				sep = ", "
 
 				fields = append(fields, genField{
@@ -415,7 +413,7 @@ func (g *gen) genImmStructs() error {
 			g.pt(`
 			{{.Field.DocComment -}}
 			func (s *{{.TypeName}}) {{.Field.Name}}() {{.Field.Type}} {
-				return s.`+_FieldHidingPrefix+`{{.Field.Name}}
+				return s.`+fieldHidingPrefix+`{{.Field.Name}}
 			}
 
 			func (s *{{.TypeName}}) {{Export "Set"}}{{Capitalise .Field.Name}}(n {{.Field.Type}}) *{{.TypeName}} {
@@ -425,12 +423,12 @@ func (g *gen) genImmStructs() error {
 				// }
 
 				if s.mutable {
-					s.`+_FieldHidingPrefix+`{{.Field.Name}} = n
+					s.`+fieldHidingPrefix+`{{.Field.Name}} = n
 					return s
 				}
 
 				res := *s
-				res.`+_FieldHidingPrefix+`{{.Field.Name}} = n
+				res.`+fieldHidingPrefix+`{{.Field.Name}} = n
 				return &res
 			}
 			`, exp, tmpl)
@@ -439,7 +437,7 @@ func (g *gen) genImmStructs() error {
 	return nil
 }
 
-func (g *gen) exprString(e ast.Expr) string {
+func (g *generator) exprString(e ast.Expr) string {
 	var buf bytes.Buffer
 
 	err := printer.Fprint(&buf, g.fset, e)
@@ -450,19 +448,19 @@ func (g *gen) exprString(e ast.Expr) string {
 	return buf.String()
 }
 
-func (g *gen) pln(i ...interface{}) {
+func (g *generator) pln(i ...interface{}) {
 	fmt.Fprintln(g.output, i...)
 }
 
-func (g *gen) pf(format string, i ...interface{}) {
+func (g *generator) pf(format string, i ...interface{}) {
 	fmt.Fprintf(g.output, format, i...)
 }
 
-func (g *gen) pfln(format string, i ...interface{}) {
+func (g *generator) pfln(format string, i ...interface{}) {
 	g.pf(format+"\n", i...)
 }
 
-func (g *gen) pt(tmpl string, fm template.FuncMap, val interface{}) {
+func (g *generator) pt(tmpl string, fm template.FuncMap, val interface{}) {
 
 	t := template.New("tmp")
 	t.Funcs(fm)

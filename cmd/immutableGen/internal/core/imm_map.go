@@ -1,6 +1,6 @@
-package generator
+package core
 
-const ImmMapTmpl = `
+const immMapTmpl = `
 type {{.Name}} struct {
 	theMap map[{{.KeyType}}]{{.ValType}}
 
