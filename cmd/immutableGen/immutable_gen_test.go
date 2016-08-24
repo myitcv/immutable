@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,7 +14,7 @@ const (
 )
 
 func TestBasic(t *testing.T) {
-	license := bytes.NewBuffer([]byte("My favourite license"))
+	license := "My favourite license"
 
 	target := filepath.Join(TestFiles, "main.go")
 
