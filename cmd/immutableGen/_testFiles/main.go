@@ -1,5 +1,7 @@
 package main
 
+//go:generate immutableGen
+
 // a comment about myMap
 type Imm_myMap map[string]int
 
@@ -18,6 +20,8 @@ type Imm_myStruct struct {
 	*/
 	Name, surname string `tag:"value"`
 	age           int    `tag:"age"`
+
+	fieldWithoutTag bool
 }
 
 func main() {

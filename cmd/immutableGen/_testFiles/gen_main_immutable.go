@@ -1,5 +1,3 @@
-// My favourite license
-
 package main
 
 type myMap struct {
@@ -174,9 +172,11 @@ func (m Slice) Append(v ...*string) Slice {
 	return res
 }
 
+// a comment about myStruct
 type myStruct struct {
-	_Name, _surname string `tag:"value"`
-	_age            int    `tag:"age"`
+	_Name, _surname  string `tag:"value"`
+	_age             int    `tag:"age"`
+	_fieldWithoutTag bool
 
 	mutable bool
 }
@@ -278,5 +278,25 @@ func (s *myStruct) setAge(n int) *myStruct {
 
 	res := *s
 	res._age = n
+	return &res
+}
+
+func (s *myStruct) fieldWithoutTag() bool {
+	return s._fieldWithoutTag
+}
+
+func (s *myStruct) setFieldWithoutTag(n bool) *myStruct {
+	// TODO: see if we can make this work
+	// if n == s.fieldWithoutTag {
+	// 	return s
+	// }
+
+	if s.mutable {
+		s._fieldWithoutTag = n
+		return s
+	}
+
+	res := *s
+	res._fieldWithoutTag = n
 	return &res
 }
