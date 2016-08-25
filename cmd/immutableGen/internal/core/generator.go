@@ -349,7 +349,12 @@ func (g *generator) genImmStructs() error {
 			sep := ""
 
 			typ := g.exprString(f.Type)
-			tag := f.Tag.Value
+
+			tag := ""
+
+			if f.Tag != nil {
+				tag = f.Tag.Value
+			}
 
 			for _, n := range f.Names {
 				names = names + sep + fieldHidingPrefix + n.Name
