@@ -335,6 +335,11 @@ func (g *generator) commentTextFor(n ast.Node) string {
 
 func (g *generator) genImmStructs() error {
 	for _, s := range g.immStructs {
+
+		comms := g.commentTextFor(s.dec)
+
+		g.pf(comms)
+
 		g.pfln("type %v struct {", s.name)
 
 		var fields []genField
