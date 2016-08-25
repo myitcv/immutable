@@ -1,6 +1,8 @@
 package core
 
 const immMapTmpl = `
+var _ immutable.Immutable = &{{.Name}}{}
+
 type {{.Name}} struct {
 	theMap map[{{.KeyType}}]{{.ValType}}
 
@@ -11,6 +13,10 @@ func {{Export "New"}}{{Capitalise .Name}}() {{.Name}} {
 	return {{.Name}}{
 		theMap: make(map[{{.KeyType}}]{{.ValType}}),
 	}
+}
+
+func (m {{.Name}})Mutable() bool {
+	return m.mutable
 }
 
 func (m {{.Name}}) Len() int {

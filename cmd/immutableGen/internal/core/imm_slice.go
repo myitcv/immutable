@@ -1,6 +1,8 @@
 package core
 
 const immSliceTmpl = `
+var _ immutable.Immutable = &{{.Name}}{}
+
 type {{.Name}} struct {
 	theSlice []{{.Type}}
 
@@ -9,6 +11,10 @@ type {{.Name}} struct {
 
 func {{Export "New"}}{{Capitalise .Name}}() {{.Name}} {
 	return {{.Name}}{}
+}
+
+func (m {{.Name}})Mutable() bool {
+	return m.mutable
 }
 
 func (m {{.Name}}) Len() int {
