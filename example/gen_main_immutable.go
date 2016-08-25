@@ -3,6 +3,12 @@
 
 package main
 
+import (
+	"github.com/myitcv/immutable"
+)
+
+var _ immutable.Immutable = &myMap{}
+
 type myMap struct {
 	theMap map[string]int
 
@@ -13,6 +19,10 @@ func newMyMap() myMap {
 	return myMap{
 		theMap: make(map[string]int),
 	}
+}
+
+func (m myMap) Mutable() bool {
+	return m.mutable
 }
 
 func (m myMap) Len() int {
@@ -82,6 +92,8 @@ func (m myMap) Set(k string, v int) myMap {
 	return res
 }
 
+var _ immutable.Immutable = &Slice{}
+
 type Slice struct {
 	theSlice []*string
 
@@ -90,6 +102,10 @@ type Slice struct {
 
 func NewSlice() Slice {
 	return Slice{}
+}
+
+func (m Slice) Mutable() bool {
+	return m.mutable
 }
 
 func (m Slice) Len() int {
@@ -175,6 +191,8 @@ func (m Slice) Append(v ...*string) Slice {
 	return res
 }
 
+var _ immutable.Immutable = &myStruct{}
+
 // a comment about myStruct
 type myStruct struct {
 	_Name, _surname string `tag:"value"`
@@ -196,6 +214,10 @@ func (s *myStruct) AsMutable() *myStruct {
 func (s *myStruct) AsImmutable() *myStruct {
 	s.mutable = false
 	return s
+}
+
+func (s *myStruct) Mutable() bool {
+	return s.mutable
 }
 
 func (s *myStruct) WithMutations(f func(si *myStruct)) *myStruct {

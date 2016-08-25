@@ -144,7 +144,7 @@ func (g *generator) gatherImmTypes() error {
 		}
 
 		if len(gd.Specs) != 1 {
-			panic("myitcv needs to better understand go/ast")
+			panic("@myitcv needs to better understand go/ast")
 		}
 
 		ts := gd.Specs[0].(*ast.TypeSpec)
@@ -205,17 +205,20 @@ func (g *generator) genImmTypes() error {
 
 	g.pf("package %v\n", g.envPkg)
 
-	if len(g.imports) > 0 {
-		g.pln("import (")
-		for i := range g.imports {
-			if i.Name != nil {
-				g.pfln("%v %v", i.Name.Name, i.Path.Value)
-			} else {
-				g.pfln("%v", i.Path.Value)
-			}
+	g.pln("import (")
+
+	g.pln("\"github.com/myitcv/immutable\"")
+	g.pln()
+
+	for i := range g.imports {
+		if i.Name != nil {
+			g.pfln("%v %v", i.Name.Name, i.Path.Value)
+		} else {
+			g.pfln("%v", i.Path.Value)
 		}
-		g.pln(")")
 	}
+
+	g.pln(")")
 
 	err := g.genImmMaps()
 	if err != nil {
@@ -338,6 +341,9 @@ func (g *generator) genImmStructs() error {
 
 		comms := g.commentTextFor(s.dec)
 
+		g.pfln("var _ immutable.Immutable = &%v{}", s.name)
+		g.pln()
+
 		g.pf(comms)
 
 		g.pfln("type %v struct {", s.name)
@@ -391,6 +397,10 @@ func (g *generator) genImmStructs() error {
 		func (s *{{.}}) AsImmutable() *{{.}} {
 			s.mutable = false
 			return s
+		}
+
+		func (s *{{.}}) Mutable() bool {
+			return s.mutable
 		}
 
 		func (s *{{.}}) WithMutations(f func(si *{{.}})) *{{.}} {
