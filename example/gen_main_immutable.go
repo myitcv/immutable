@@ -175,6 +175,7 @@ func (m Slice) Append(v ...*string) Slice {
 	return res
 }
 
+// a comment about myStruct
 type myStruct struct {
 	_Name, _surname string `tag:"value"`
 	_age            int    `tag:"age"`
