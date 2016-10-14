@@ -13,7 +13,14 @@ const (
 	_GoPackage = "GOPACKAGE"
 )
 
-var fLicenseFile = flag.String("licenseFile", "", "file containing an uncommented license header")
+var (
+	fLicenseFile = flag.String("licenseFile", "", "file containing an uncommented license header")
+	fGoGenCmds   core.GoGenCmds
+)
+
+func init() {
+	flag.Var(&fGoGenCmds, "G", "Path to search for imports (flag can be used multiple times)")
+}
 
 func main() {
 	flag.Parse()
@@ -39,7 +46,7 @@ func main() {
 		licenseHeader = string(byts)
 	}
 
-	err := core.Execute(envFile, envPkg, licenseHeader)
+	err := core.Execute(envFile, envPkg, licenseHeader, fGoGenCmds)
 	if err != nil {
 		panic(err)
 	}
