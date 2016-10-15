@@ -3,6 +3,7 @@
 
 package main
 
+//go:generate true
 import (
 	"github.com/myitcv/immutable"
 )

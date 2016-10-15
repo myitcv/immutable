@@ -21,7 +21,7 @@ const (
 	fieldHidingPrefix = "_"
 )
 
-func Execute(file string, pkg string, licenseHeader string) error {
+func Execute(file string, pkg string, licenseHeader string, cmds GoGenCmds) error {
 
 	path := filepath.Dir(file)
 	base := filepath.Base(file)
@@ -37,6 +37,8 @@ func Execute(file string, pkg string, licenseHeader string) error {
 		envBase: basename,
 
 		license: license,
+
+		goGenCmds: cmds,
 
 		fset: token.NewFileSet(),
 
@@ -69,6 +71,8 @@ type generator struct {
 	envBase string
 
 	license string
+
+	goGenCmds GoGenCmds
 
 	fset *token.FileSet
 	file *ast.File
@@ -204,6 +208,11 @@ func (g *generator) genImmTypes() error {
 	g.pf(g.license)
 
 	g.pf("package %v\n", g.envPkg)
+
+	// is there a "standard" place for //go:generate comments?
+	for _, v := range g.goGenCmds {
+		g.pf("//go:generate %v\n", v)
+	}
 
 	g.pln("import (")
 
