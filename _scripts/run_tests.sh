@@ -7,6 +7,12 @@ set -e
 
 set -v
 
+go test ./...
+
+export PATH=$GOPATH/bin:$PATH
+
+go install github.com/myitcv/immutable/cmd/immutableGen
+
 go generate ./...
 go vet ./...
 

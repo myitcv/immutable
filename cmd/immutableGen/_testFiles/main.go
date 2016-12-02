@@ -1,6 +1,6 @@
 package main
 
-//go:generate immutableGen
+//go:generate immutableGen -licenseFile license.txt -G true
 
 // a comment about myMap
 type Imm_myMap map[string]int
