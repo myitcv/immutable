@@ -15,7 +15,7 @@ const (
 
 func TestBasic(t *testing.T) {
 	license := "My favourite license"
-	trueCmd := "true" // need a command that will succeed with zero exit code
+	trueCmd := `echo "hello world"` // need a command that will succeed with zero exit code
 
 	target := filepath.Join(TestFiles, "main.go")
 
