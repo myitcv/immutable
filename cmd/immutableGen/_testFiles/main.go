@@ -1,6 +1,6 @@
 package main
 
-//go:generate immutableGen -licenseFile license.txt -G true
+//go:generate immutableGen -licenseFile license.txt -G "echo \"hello world\""
 
 // a comment about myMap
 type Imm_myMap map[string]int

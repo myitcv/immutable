@@ -2,7 +2,7 @@
 
 package main
 
-//go:generate true
+//go:generate echo "hello world"
 import (
 	"github.com/myitcv/immutable"
 )
