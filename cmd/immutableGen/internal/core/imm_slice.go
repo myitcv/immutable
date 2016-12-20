@@ -12,54 +12,83 @@ type {{.Name}} struct {
 	mutable bool
 }
 
-func {{Export "New"}}{{Capitalise .Name}}() {{.Name}} {
-	return {{.Name}}{}
+func {{Export "New"}}{{Capitalise .Name}}(s ...{{.Type}}) *{{.Name}} {
+	c := make([]{{.Type}}, len(s))
+	copy(c, s)
+
+	return &{{.Name}}{
+		theSlice: c,
+	}
 }
 
-func (m {{.Name}})Mutable() bool {
+func {{Export "New"}}{{Capitalise .Name}}Len(l int) *{{.Name}} {
+	c := make([]{{.Type}}, l)
+
+	return &{{.Name}}{
+		theSlice: c,
+	}
+}
+
+func (m *{{.Name}})Mutable() bool {
 	return m.mutable
 }
 
-func (m {{.Name}}) Len() int {
+func (m *{{.Name}}) Len() int {
+	if m == nil {
+		return 0
+	}
+
 	return len(m.theSlice)
 }
 
-func (m {{.Name}}) Get(i int) {{.Type}} {
+func (m *{{.Name}}) Get(i int) {{.Type}} {
 	return m.theSlice[i]
 }
 
-func (m {{.Name}}) AsMutable() {{.Name}} {
+func (m *{{.Name}}) AsMutable() *{{.Name}} {
+	if m == nil {
+		return nil
+	}
+
 	res := m.dup()
 	res.mutable = true
 
 	return res
 }
 
-func (m {{.Name}}) dup() {{.Name}} {
+func (m *{{.Name}}) dup() *{{.Name}} {
 	resSlice := make([]{{.Type}}, len(m.theSlice))
 
 	for i := range m.theSlice {
 		resSlice[i] = m.theSlice[i]
 	}
 
-	res := {{.Name}}{
+	res := &{{.Name}}{
 		theSlice: resSlice,
 	}
 
 	return res
 }
 
-func (m {{.Name}}) AsImmutable() {{.Name}} {
+func (m *{{.Name}}) AsImmutable() *{{.Name}} {
+	if m == nil {
+		return nil
+	}
+
 	m.mutable = false
 
 	return m
 }
 
-func (m {{.Name}}) Range() []{{.Type}} {
+func (m *{{.Name}}) Range() []{{.Type}} {
+	if m == nil {
+		return nil
+	}
+
 	return m.theSlice
 }
 
-func (m {{.Name}}) WithMutations(f func(mi {{.Name}})) {{.Name}} {
+func (m *{{.Name}}) WithMutations(f func(mi *{{.Name}})) *{{.Name}} {
 	res := m.AsMutable()
 	f(res)
 	res = res.AsImmutable()
@@ -69,16 +98,11 @@ func (m {{.Name}}) WithMutations(f func(mi {{.Name}})) {{.Name}} {
 	return res
 }
 
-func (m {{.Name}}) Set(i int, v {{.Type}}) {{.Name}} {
+func (m *{{.Name}}) Set(i int, v {{.Type}}) *{{.Name}} {
 	if m.mutable {
 		m.theSlice[i] = v
 		return m
 	}
-
-	// TODO: work out a way of enabling this
-	// if m.theSlice[i] == v {
-	// 	return m
-	// }
 
 	res := m.dup()
 	res.theSlice[i] = v
@@ -86,16 +110,11 @@ func (m {{.Name}}) Set(i int, v {{.Type}}) {{.Name}} {
 	return res
 }
 
-func (m {{.Name}}) Append(v ...{{.Type}}) {{.Name}} {
+func (m *{{.Name}}) Append(v ...{{.Type}}) *{{.Name}} {
 	if m.mutable {
 		m.theSlice = append(m.theSlice, v...)
 		return m
 	}
-
-	// TODO: work out a way of enabling this
-	// if m.theSlice[i] == v {
-	// 	return m
-	// }
 
 	res := m.dup()
 	res.theSlice = append(res.theSlice, v...)

@@ -15,79 +15,110 @@ type myMap struct {
 	mutable bool
 }
 
-func newMyMap() myMap {
-	return myMap{
+func newMyMap() *myMap {
+	return &myMap{
 		theMap: make(map[string]int),
 	}
 }
 
-func (m myMap) Mutable() bool {
+func newMyMapLen(l int) *myMap {
+	return &myMap{
+		theMap: make(map[string]int, l),
+	}
+}
+
+func (m *myMap) Mutable() bool {
 	return m.mutable
 }
 
-func (m myMap) Len() int {
+func (m *myMap) Len() int {
+	if m == nil {
+		return 0
+	}
+
 	return len(m.theMap)
 }
 
-func (m myMap) Get(k string) (int, bool) {
+func (m *myMap) Get(k string) (int, bool) {
 	v, ok := m.theMap[k]
 	return v, ok
 }
 
-func (m myMap) AsMutable() myMap {
+func (m *myMap) AsMutable() *myMap {
+	if m == nil {
+		return nil
+	}
+
 	res := m.dup()
 	res.mutable = true
 
 	return res
 }
 
-func (m myMap) dup() myMap {
+func (m *myMap) dup() *myMap {
 	resMap := make(map[string]int, len(m.theMap))
 
 	for k := range m.theMap {
 		resMap[k] = m.theMap[k]
 	}
 
-	res := myMap{
+	res := &myMap{
 		theMap: resMap,
 	}
 
 	return res
 }
 
-func (m myMap) AsImmutable() myMap {
+func (m *myMap) AsImmutable() *myMap {
+	if m == nil {
+		return nil
+	}
+
 	m.mutable = false
 
 	return m
 }
 
-func (m myMap) Range() map[string]int {
+func (m *myMap) Range() map[string]int {
+	if m == nil {
+		return nil
+	}
+
 	return m.theMap
 }
 
-func (m myMap) WithMutations(f func(mi myMap)) myMap {
+func (m *myMap) WithMutations(f func(mi *myMap)) *myMap {
 	res := m.AsMutable()
 	f(res)
 	res = res.AsImmutable()
 
-	// TODO optimise here if the maps are identical?
-
 	return res
 }
 
-func (m myMap) Set(k string, v int) myMap {
+func (m *myMap) Set(k string, v int) *myMap {
 	if m.mutable {
 		m.theMap[k] = v
 		return m
 	}
 
-	// TODO: work out a way of enabling this
-	// if n, ok := m.theMap[k]; ok && n == v {
-	// 	return m
-	// }
-
 	res := m.dup()
 	res.theMap[k] = v
+
+	return res
+}
+
+func (m *myMap) Del(k string) *myMap {
+	if _, ok := m.theMap[k]; !ok {
+		return m
+	}
+
+	if m.mutable {
+		delete(m.theMap, k)
+		return m
+	}
+
+	res := m.dup()
+	delete(res.theMap, k)
 
 	return res
 }
@@ -100,54 +131,83 @@ type Slice struct {
 	mutable bool
 }
 
-func NewSlice() Slice {
-	return Slice{}
+func NewSlice(s ...*string) *Slice {
+	c := make([]*string, len(s))
+	copy(c, s)
+
+	return &Slice{
+		theSlice: c,
+	}
 }
 
-func (m Slice) Mutable() bool {
+func NewSliceLen(l int) *Slice {
+	c := make([]*string, l)
+
+	return &Slice{
+		theSlice: c,
+	}
+}
+
+func (m *Slice) Mutable() bool {
 	return m.mutable
 }
 
-func (m Slice) Len() int {
+func (m *Slice) Len() int {
+	if m == nil {
+		return 0
+	}
+
 	return len(m.theSlice)
 }
 
-func (m Slice) Get(i int) *string {
+func (m *Slice) Get(i int) *string {
 	return m.theSlice[i]
 }
 
-func (m Slice) AsMutable() Slice {
+func (m *Slice) AsMutable() *Slice {
+	if m == nil {
+		return nil
+	}
+
 	res := m.dup()
 	res.mutable = true
 
 	return res
 }
 
-func (m Slice) dup() Slice {
+func (m *Slice) dup() *Slice {
 	resSlice := make([]*string, len(m.theSlice))
 
 	for i := range m.theSlice {
 		resSlice[i] = m.theSlice[i]
 	}
 
-	res := Slice{
+	res := &Slice{
 		theSlice: resSlice,
 	}
 
 	return res
 }
 
-func (m Slice) AsImmutable() Slice {
+func (m *Slice) AsImmutable() *Slice {
+	if m == nil {
+		return nil
+	}
+
 	m.mutable = false
 
 	return m
 }
 
-func (m Slice) Range() []*string {
+func (m *Slice) Range() []*string {
+	if m == nil {
+		return nil
+	}
+
 	return m.theSlice
 }
 
-func (m Slice) WithMutations(f func(mi Slice)) Slice {
+func (m *Slice) WithMutations(f func(mi *Slice)) *Slice {
 	res := m.AsMutable()
 	f(res)
 	res = res.AsImmutable()
@@ -157,16 +217,11 @@ func (m Slice) WithMutations(f func(mi Slice)) Slice {
 	return res
 }
 
-func (m Slice) Set(i int, v *string) Slice {
+func (m *Slice) Set(i int, v *string) *Slice {
 	if m.mutable {
 		m.theSlice[i] = v
 		return m
 	}
-
-	// TODO: work out a way of enabling this
-	// if m.theSlice[i] == v {
-	// 	return m
-	// }
 
 	res := m.dup()
 	res.theSlice[i] = v
@@ -174,16 +229,11 @@ func (m Slice) Set(i int, v *string) Slice {
 	return res
 }
 
-func (m Slice) Append(v ...*string) Slice {
+func (m *Slice) Append(v ...*string) *Slice {
 	if m.mutable {
 		m.theSlice = append(m.theSlice, v...)
 		return m
 	}
-
-	// TODO: work out a way of enabling this
-	// if m.theSlice[i] == v {
-	// 	return m
-	// }
 
 	res := m.dup()
 	res.theSlice = append(res.theSlice, v...)
@@ -202,9 +252,9 @@ type myStruct struct {
 	mutable bool
 }
 
-func newMyStruct() *myStruct {
-	return &myStruct{}
-}
+// func newMyStruct() *myStruct {
+// 	return &myStruct{}
+// }
 
 func (s *myStruct) AsMutable() *myStruct {
 	res := *s
@@ -225,9 +275,11 @@ func (s *myStruct) WithMutations(f func(si *myStruct)) *myStruct {
 	res := s.AsMutable()
 	f(res)
 	res = res.AsImmutable()
-	if *res == *s {
-		return s
-	}
+
+	// TODO: work out a way of enabling this
+	// if *res == *s {
+	// 	return s
+	// }
 
 	return res
 }
