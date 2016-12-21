@@ -396,9 +396,9 @@ func (g *generator) genImmStructs() error {
 		exp := exporter(s.name)
 
 		g.pt(`
-		func {{Export "New"}}{{Capitalise .}}() *{{.}} {
-			return &{{.}}{}
-		}
+		// func new{{Capitalise .}}() *{{.}} {
+		// 	return &{{.}}{}
+		// }
 
 		func (s *{{.}}) AsMutable() *{{.}} {
 			res := *s
@@ -419,9 +419,11 @@ func (g *generator) genImmStructs() error {
 			res := s.AsMutable()
 			f(res)
 			res = res.AsImmutable()
-			if *res == *s {
-				return s
-			}
+
+			// TODO: work out a way of enabling this
+			// if *res == *s {
+			// 	return s
+			// }
 
 			return res
 		}
