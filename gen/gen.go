@@ -5,6 +5,6 @@ package gen
 
 const (
 	GenFilePrefix   = "gen_"
-	GenFileSuffix   = "_immutable.go"
+	GenFileSuffix   = ".immutableGen.go"
 	ImmTypeIdPrefix = "_Imm_"
 )

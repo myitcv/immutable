@@ -20,20 +20,12 @@ trap 'set +u; error "${LINENO}" "${BASH_SOURCE}"' ERR
 set -u
 set -v
 
-export GOPATH=$PWD/_vendor:$GOPATH
 export PATH=$GOPATH/bin:$PATH
 
-go install github.com/myitcv/immutable/cmd/immutableGen
-
 go generate ./...
+
+go test ./...
+
 go install ./...
+
 go vet ./...
-
-# no tests to run here...
-
-cd cmd/immutableGen/_testFiles/
-
-go generate
-go test
-go install
-go vet

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/myitcv/gogenerate"
 	"github.com/myitcv/immutable/cmd/immutableGen/internal/core"
 )
 
@@ -17,8 +18,9 @@ const (
 )
 
 var (
-	fLicenseFile = flag.String("licenseFile", "", "file containing an uncommented license header")
 	fGoGenCmds   core.GoGenCmds
+	fLicenseFile = flag.String("licenseFile", "", "file containing an uncommented license header")
+	fGoGenLog    = gogenerate.LogFlag()
 )
 
 func init() {
@@ -27,6 +29,10 @@ func init() {
 
 func main() {
 	flag.Parse()
+
+	if *fGoGenLog == "" {
+		*fGoGenLog = gogenerate.LogFatal
+	}
 
 	envFile, ok := os.LookupEnv(_GoFile)
 	if !ok {
