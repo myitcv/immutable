@@ -2,14 +2,14 @@ package main
 
 //go:generate immutableGen -licenseFile license.txt -G "echo \"hello world\""
 
-// a comment about myMap
-type _Imm_myMap map[string]int
+// a comment about MyMap
+type _Imm_MyMap map[string]int
 
 // a comment about Slice
-type _Imm_Slice []*string
+type _Imm_MySlice []*string
 
 // a comment about myStruct
-type _Imm_myStruct struct {
+type _Imm_MyStruct struct {
 
 	// my field comment
 	//somethingspecial

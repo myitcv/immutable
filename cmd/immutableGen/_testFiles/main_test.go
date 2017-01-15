@@ -5,7 +5,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	m1 := newMyMap()
+	m1 := NewMyMap()
 
 	if m1.Len() != 0 {
 		t.Fatalf("Expected m1 length to be 0, got %v", m1.Len())
@@ -23,7 +23,7 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("Expected m2 length to be 1, got %v", m2.Len())
 	}
 
-	l1 := NewSlice()
+	l1 := NewMySlice()
 
 	if l1.Len() != 0 {
 		t.Fatalf("Expected l1 length to be 0, got %v", l1.Len())
@@ -43,7 +43,7 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("Expected l2 length to be 1, got %v", l2.Len())
 	}
 
-	ms1 := new(myStruct)
+	ms1 := new(MyStruct)
 
 	if ms1.Name() != "" {
 		t.Fatalf("Expected ms1.Name() to be \"\", got %v", ms1.Name())
@@ -63,7 +63,7 @@ func TestBasic(t *testing.T) {
 }
 
 func TestAsMutable(t *testing.T) {
-	m1 := newMyMap().AsMutable()
+	m1 := NewMyMap().AsMutable()
 
 	if m1.Len() != 0 {
 		t.Fatalf("Expected m1 length to be 0, got %v", m1.Len())
@@ -78,7 +78,7 @@ func TestAsMutable(t *testing.T) {
 		t.Fatalf("Expected m2 length to be 1, got %v", m2.Len())
 	}
 
-	l1 := NewSlice().AsMutable()
+	l1 := NewMySlice().AsMutable()
 
 	if l1.Len() != 0 {
 		t.Fatalf("Expected l1 length to be 0, got %v", l1.Len())
@@ -95,7 +95,7 @@ func TestAsMutable(t *testing.T) {
 		t.Fatalf("Expected l2 length to be 1, got %v", l2.Len())
 	}
 
-	ms1 := new(myStruct).AsMutable()
+	ms1 := new(MyStruct).AsMutable()
 
 	if ms1.Name() != "" {
 		t.Fatalf("Expected ms1.Name() to be \"\", got %v", ms1.Name())
