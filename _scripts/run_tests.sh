@@ -19,9 +19,13 @@ trap 'set +u; error "${LINENO}" "${BASH_SOURCE}"' ERR
 
 set -u
 set -v
+shopt -s globstar
+shopt -s extglob
 
 export GOPATH=$PWD/_vendor:$GOPATH
 export PATH=$GOPATH/bin:$PATH
+
+rm -f !(_vendor)/**/gen_*.go
 
 go install github.com/myitcv/immutable/cmd/immutableGen
 
