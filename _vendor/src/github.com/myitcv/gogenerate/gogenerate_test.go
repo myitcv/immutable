@@ -154,20 +154,23 @@ func TestNameFileFromFile(t *testing.T) {
 }
 
 func TestCommentLicenseHeader(t *testing.T) {
-	fn := "_testFiles/licenseFile.txt"
-
-	res, err := CommentLicenseHeader(&fn)
-
-	if err != nil {
-		t.Fatalf("CommentLicenseHeader failed when it should not have: %v", err)
+	checks := []struct {
+		fn  string
+		exp string
+	}{
+		{"", ""},
+		{"_testFiles/licenseFile.txt", "// Copyright (c) Bananaman 2016\n// Line 2\n\n"},
 	}
 
-	exp := `// Copyright (c) Bananaman 2016
-// Line 2
+	for _, c := range checks {
+		res, err := CommentLicenseHeader(&c.fn)
 
-`
+		if err != nil {
+			t.Fatalf("CommentLicenseHeader(&%q) failed when it should not have: %v", c.fn, err)
+		}
 
-	if res != exp {
-		t.Errorf("Actual output %q was not as expected %q", res, exp)
+		if res != c.exp {
+			t.Errorf("Actual output %q was not as expected %q", res, c.exp)
+		}
 	}
 }

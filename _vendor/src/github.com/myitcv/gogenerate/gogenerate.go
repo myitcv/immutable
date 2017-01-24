@@ -130,20 +130,20 @@ func LogFlag() *string {
 // LicenseFileFlag defines a command line string flag named according to the constant
 // FlagLicenseFile and returns a pointer ot the string that flag set
 func LicenseFileFlag() *string {
-	return flag.String(FlagLicenseFile, string(LogFatal), "file that contains a license header to be inserted at the top of each generated file")
+	return flag.String(FlagLicenseFile, "", "file that contains a license header to be inserted at the top of each generated file")
 }
 
 // CommentLicenseHeader is a convenience function to be used in conjunction with LicenseFileFlag;
 // if a filename is provided it reads the contents of the file and returns a line-commented transformation
 // of the contents with a final blank newline
 func CommentLicenseHeader(file *string) (string, error) {
-	if file == nil {
+	if file == nil || *file == "" {
 		return "", nil
 	}
 
 	fi, err := os.Open(*file)
 	if err != nil {
-		return "", fmt.Errorf("could not open file %v: %v", *file, err)
+		return "", fmt.Errorf("could not open file %q: %v", *file, err)
 	}
 
 	res := bytes.NewBuffer(nil)
