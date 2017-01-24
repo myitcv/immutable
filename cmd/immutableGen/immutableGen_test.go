@@ -4,7 +4,7 @@
 package main
 
 import (
-	"fmt"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"io"
@@ -20,7 +20,7 @@ const (
 )
 
 func TestBasic(t *testing.T) {
-	license := "My favourite license"
+	license := "// My favourite license"
 	echoCmd := `echo "hello world"` // need a command that will succeed with zero exit code
 
 	genTarget := "gen_main_immutableGen.go"
@@ -57,23 +57,32 @@ func TestBasic(t *testing.T) {
 
 	for _, d := range f.Decls {
 
-		name := immutable.IsImmType(f, d)
-
-		if name != "" {
-			fmt.Println(">>", name)
+		gd, ok := d.(*ast.GenDecl)
+		if !ok || gd.Tok != token.TYPE {
+			continue
 		}
 
-		switch name {
-		case "MyStruct":
-			foundMyStruct = true
-		case "MySlice":
-			foundMySlice = true
-		case "MyMap":
-			foundMyMap = true
-		}
+		for _, s := range gd.Specs {
+			ts := s.(*ast.TypeSpec)
 
-		if name == "MyStruct" {
-			foundMyStruct = true
+			if !immutable.IsImmType(f, ts) {
+				continue
+			}
+
+			name := ts.Name.Name
+
+			switch name {
+			case "MyStruct":
+				foundMyStruct = true
+			case "MySlice":
+				foundMySlice = true
+			case "MyMap":
+				foundMyMap = true
+			}
+
+			if name == "MyStruct" {
+				foundMyStruct = true
+			}
 		}
 	}
 

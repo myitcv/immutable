@@ -19,7 +19,7 @@ import (
 	"golang.org/x/tools/imports"
 
 	"github.com/myitcv/gogenerate"
-	"github.com/myitcv/immutable/internal/util"
+	"github.com/myitcv/immutable"
 )
 
 const (
@@ -105,50 +105,59 @@ func gatherImmTypes(fset *token.FileSet, file *ast.File) *fileTmpls {
 
 	for _, d := range file.Decls {
 
-		gd, ts, name := util.IsImmTmpl(d)
-		if gd == nil {
+		gd, ok := d.(*ast.GenDecl)
+		if !ok || gd.Tok != token.TYPE {
 			continue
 		}
 
-		infof("found immutable declaration at %v", fset.Position(gd.Pos()))
+		for _, s := range gd.Specs {
+			ts := s.(*ast.TypeSpec)
 
-		switch typ := ts.Type.(type) {
-		case *ast.MapType:
-			g.maps = append(g.maps, immMap{
-				fset:   fset,
-				name:   name,
-				dec:    gd,
-				typ:    typ,
-				keyTyp: typ.Key,
-				valTyp: typ.Value,
-			})
+			name, ok := immutable.IsImmTmpl(ts)
+			if !ok {
+				continue
+			}
 
-			ast.Walk(impf, ts.Type)
+			infof("found immutable declaration at %v", fset.Position(gd.Pos()))
 
-		case *ast.ArrayType:
-			// TODO support for arrays
-
-			if typ.Len == nil {
-				g.slices = append(g.slices, immSlice{
+			switch typ := ts.Type.(type) {
+			case *ast.MapType:
+				g.maps = append(g.maps, immMap{
 					fset:   fset,
 					name:   name,
 					dec:    gd,
 					typ:    typ,
-					valTyp: typ.Elt,
+					keyTyp: typ.Key,
+					valTyp: typ.Value,
 				})
+
+				ast.Walk(impf, ts.Type)
+
+			case *ast.ArrayType:
+				// TODO support for arrays
+
+				if typ.Len == nil {
+					g.slices = append(g.slices, immSlice{
+						fset:   fset,
+						name:   name,
+						dec:    gd,
+						typ:    typ,
+						valTyp: typ.Elt,
+					})
+				}
+
+				ast.Walk(impf, ts.Type)
+
+			case *ast.StructType:
+				g.structs = append(g.structs, immStruct{
+					fset: fset,
+					name: name,
+					dec:  gd,
+					st:   typ,
+				})
+
+				ast.Walk(impf, ts.Type)
 			}
-
-			ast.Walk(impf, ts.Type)
-
-		case *ast.StructType:
-			g.structs = append(g.structs, immStruct{
-				fset: fset,
-				name: name,
-				dec:  gd,
-				st:   typ,
-			})
-
-			ast.Walk(impf, ts.Type)
 		}
 	}
 
