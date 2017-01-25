@@ -16,16 +16,16 @@ import (
 )
 
 const (
-	TestFiles = "_testFiles"
+	TestFiles = "internal/coretest"
 )
 
 func TestBasic(t *testing.T) {
 	license := "// My favourite license"
 	echoCmd := `echo "hello world"` // need a command that will succeed with zero exit code
 
-	genTarget := "gen_main_immutableGen.go"
+	genTarget := "gen_core_immutableGen.go"
 
-	execute(TestFiles, "main", license, gogenCmds{echoCmd})
+	execute(TestFiles, "coretest", license, gogenCmds{echoCmd})
 
 	genFile := filepath.Join(TestFiles, genTarget)
 

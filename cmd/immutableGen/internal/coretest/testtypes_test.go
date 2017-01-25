@@ -1,15 +1,13 @@
-package main
-
-//go:generate immutableGen -licenseFile license.txt -G "echo \"hello world\""
+package coretest
 
 // a comment about MyMap
-type _Imm_MyMap map[string]int
+type _Imm_MyTestMap map[string]int
 
 // a comment about Slice
-type _Imm_MySlice []*string
+type _Imm_MyTestSlice []*string
 
 // a comment about myStruct
-type _Imm_MyStruct struct {
+type _Imm_MyTestStruct struct {
 
 	// my field comment
 	//somethingspecial
@@ -22,7 +20,4 @@ type _Imm_MyStruct struct {
 	age           int    `tag:"age"`
 
 	fieldWithoutTag bool
-}
-
-func main() {
 }

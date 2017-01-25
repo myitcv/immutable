@@ -1,11 +1,13 @@
-package main
+package coretest_test
 
 import (
 	"testing"
+
+	"github.com/myitcv/immutable/cmd/immutableGen/internal/coretest"
 )
 
 func TestBasic(t *testing.T) {
-	m1 := NewMyMap()
+	m1 := coretest.NewMyMap()
 
 	if m1.Len() != 0 {
 		t.Fatalf("Expected m1 length to be 0, got %v", m1.Len())
@@ -23,7 +25,7 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("Expected m2 length to be 1, got %v", m2.Len())
 	}
 
-	l1 := NewMySlice()
+	l1 := coretest.NewMySlice()
 
 	if l1.Len() != 0 {
 		t.Fatalf("Expected l1 length to be 0, got %v", l1.Len())
@@ -43,7 +45,7 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("Expected l2 length to be 1, got %v", l2.Len())
 	}
 
-	ms1 := new(MyStruct)
+	ms1 := new(coretest.MyStruct)
 
 	if ms1.Name() != "" {
 		t.Fatalf("Expected ms1.Name() to be \"\", got %v", ms1.Name())
@@ -63,7 +65,7 @@ func TestBasic(t *testing.T) {
 }
 
 func TestAsMutable(t *testing.T) {
-	m1 := NewMyMap().AsMutable()
+	m1 := coretest.NewMyMap().AsMutable()
 
 	if m1.Len() != 0 {
 		t.Fatalf("Expected m1 length to be 0, got %v", m1.Len())
@@ -78,7 +80,7 @@ func TestAsMutable(t *testing.T) {
 		t.Fatalf("Expected m2 length to be 1, got %v", m2.Len())
 	}
 
-	l1 := NewMySlice().AsMutable()
+	l1 := coretest.NewMySlice().AsMutable()
 
 	if l1.Len() != 0 {
 		t.Fatalf("Expected l1 length to be 0, got %v", l1.Len())
@@ -95,7 +97,7 @@ func TestAsMutable(t *testing.T) {
 		t.Fatalf("Expected l2 length to be 1, got %v", l2.Len())
 	}
 
-	ms1 := new(MyStruct).AsMutable()
+	ms1 := new(coretest.MyStruct).AsMutable()
 
 	if ms1.Name() != "" {
 		t.Fatalf("Expected ms1.Name() to be \"\", got %v", ms1.Name())
@@ -108,5 +110,12 @@ func TestAsMutable(t *testing.T) {
 	}
 	if ms2.Name() != "paul" {
 		t.Fatalf("Expected ms2.Name() to be \"paul\", got %v", ms2.Name())
+	}
+}
+
+func TestTestTypes(t *testing.T) {
+	m := coretest.NewMyTestMap()
+	if m == nil {
+		t.Fatalf("could not created instance of MyTestMap")
 	}
 }
