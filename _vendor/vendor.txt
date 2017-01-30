@@ -1,2 +1,0 @@
-    ./_vendor/src/golang.org/x/tools            721f218496963f33ebc9fbc5cdbdeed007ad9c49  https://go.googlesource.com/tools
-    ./_vendor/src/github.com/myitcv/gogenerate  60b1cbbb5f41fe4827f6405078b4119a3c4c2418  git@github.com:myitcv/gogenerate.git

@@ -6,7 +6,7 @@ package coretest
 type _Imm_MyMap map[string]int
 
 // a comment about Slice
-type _Imm_MySlice []*string
+type _Imm_MySlice []string
 
 // a comment about myStruct
 type _Imm_MyStruct struct {

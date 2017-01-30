@@ -87,23 +87,26 @@ func TestNameTestFile(t *testing.T) {
 
 func TestFileIsGenerated(t *testing.T) {
 	checks := []struct {
-		p string
-		r bool
+		p   string
+		cmd string
+		r   bool
 	}{
-		{"is_a_gen_file", false},
-		{"gen_file", true},
-		{"gen_file.go", true},
-		{"genfile.go", false},
-		{"/path/to/gen_file", true},
-		{"/path/to/gen_file.go", true},
-		{"/path/to/genfile.go", false},
-		{"/", false},
+		{"is_a_gen_file", "", false},
+		{"gen_file", "", false},
+		{"gen_cmd.go", "cmd", true},
+		{"gen_my_cmd.go", "cmd", true},
+		{"genfile.go", "", false},
+		{"/path/to/gen_file", "", false},
+		{"/path/to/gen_cmd.go", "cmd", true},
+		{"/path/to/gen_my_cmd.go", "cmd", true},
+		{"/path/to/genfile.go", "", false},
+		{"/", "", false},
 	}
 
 	for _, c := range checks {
-		r := FileIsGenerated(c.p)
-		if r != c.r {
-			t.Errorf("Expected FileIsGenerated(%q) to be %v got %v", c.p, c.r, r)
+		cmd, r := FileIsGenerated(c.p)
+		if r != c.r || cmd != c.cmd {
+			t.Errorf("Expected FileIsGenerated(%q) to be (%v, %q) got (%v, %q)", c.p, c.r, c.cmd, r, cmd)
 		}
 	}
 }

@@ -21,17 +21,25 @@ type myTestMap struct {
 
 	theMap  map[string]int
 	mutable bool
+	__tmpl  _Imm_myTestMap
 }
 
 var _ immutable.Immutable = &myTestMap{}
 
-func newMyTestMap() *myTestMap {
-	return &myTestMap{
-		theMap: make(map[string]int),
+func newMyTestMap(inits ...func(m *myTestMap)) *myTestMap {
+	res := newMyTestMapCap(0)
+	if len(inits) == 0 {
+		return res
 	}
+
+	return res.WithMutable(func(m *myTestMap) {
+		for _, i := range inits {
+			i(m)
+		}
+	})
 }
 
-func newMyTestMapLen(l int) *myTestMap {
+func newMyTestMapCap(l int) *myTestMap {
 	return &myTestMap{
 		theMap: make(map[string]int, l),
 	}
@@ -59,6 +67,10 @@ func (m *myTestMap) AsMutable() *myTestMap {
 		return nil
 	}
 
+	if m.Mutable() {
+		return m
+	}
+
 	res := m.dup()
 	res.mutable = true
 
@@ -79,13 +91,16 @@ func (m *myTestMap) dup() *myTestMap {
 	return res
 }
 
-func (m *myTestMap) AsImmutable() *myTestMap {
+func (m *myTestMap) AsImmutable(v *myTestMap) *myTestMap {
 	if m == nil {
 		return nil
 	}
 
-	m.mutable = false
+	if v == m {
+		return m
+	}
 
+	m.mutable = false
 	return m
 }
 
@@ -97,12 +112,21 @@ func (m *myTestMap) Range() map[string]int {
 	return m.theMap
 }
 
-func (m *myTestMap) WithMutations(f func(mi *myTestMap)) *myTestMap {
+func (m *myTestMap) WithMutable(f func(mi *myTestMap)) *myTestMap {
 	res := m.AsMutable()
 	f(res)
-	res = res.AsImmutable()
+	res = res.AsImmutable(m)
 
 	return res
+}
+
+func (m *myTestMap) WithImmutable(f func(mi *myTestMap)) *myTestMap {
+	prev := m.mutable
+	m.mutable = false
+	f(m)
+	m.mutable = prev
+
+	return m
 }
 
 func (m *myTestMap) Set(k string, v int) *myTestMap {

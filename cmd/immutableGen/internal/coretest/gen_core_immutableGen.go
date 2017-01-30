@@ -21,17 +21,25 @@ type MyMap struct {
 
 	theMap  map[string]int
 	mutable bool
+	__tmpl  _Imm_MyMap
 }
 
 var _ immutable.Immutable = &MyMap{}
 
-func NewMyMap() *MyMap {
-	return &MyMap{
-		theMap: make(map[string]int),
+func NewMyMap(inits ...func(m *MyMap)) *MyMap {
+	res := NewMyMapCap(0)
+	if len(inits) == 0 {
+		return res
 	}
+
+	return res.WithMutable(func(m *MyMap) {
+		for _, i := range inits {
+			i(m)
+		}
+	})
 }
 
-func NewMyMapLen(l int) *MyMap {
+func NewMyMapCap(l int) *MyMap {
 	return &MyMap{
 		theMap: make(map[string]int, l),
 	}
@@ -59,6 +67,10 @@ func (m *MyMap) AsMutable() *MyMap {
 		return nil
 	}
 
+	if m.Mutable() {
+		return m
+	}
+
 	res := m.dup()
 	res.mutable = true
 
@@ -79,13 +91,16 @@ func (m *MyMap) dup() *MyMap {
 	return res
 }
 
-func (m *MyMap) AsImmutable() *MyMap {
+func (m *MyMap) AsImmutable(v *MyMap) *MyMap {
 	if m == nil {
 		return nil
 	}
 
-	m.mutable = false
+	if v == m {
+		return m
+	}
 
+	m.mutable = false
 	return m
 }
 
@@ -97,12 +112,21 @@ func (m *MyMap) Range() map[string]int {
 	return m.theMap
 }
 
-func (m *MyMap) WithMutations(f func(mi *MyMap)) *MyMap {
+func (m *MyMap) WithMutable(f func(mi *MyMap)) *MyMap {
 	res := m.AsMutable()
 	f(res)
-	res = res.AsImmutable()
+	res = res.AsImmutable(m)
 
 	return res
+}
+
+func (m *MyMap) WithImmutable(f func(mi *MyMap)) *MyMap {
+	prev := m.mutable
+	m.mutable = false
+	f(m)
+	m.mutable = prev
+
+	return m
 }
 
 func (m *MyMap) Set(k string, v int) *MyMap {
@@ -137,19 +161,20 @@ func (m *MyMap) Del(k string) *MyMap {
 //
 // MySlice is an immutable type and has the following template:
 //
-// 	[]*string
+// 	[]string
 //
 type MySlice struct {
 	//github.com/myitcv/immutable:ImmutableType
 
-	theSlice []*string
+	theSlice []string
 	mutable  bool
+	__tmpl   _Imm_MySlice
 }
 
 var _ immutable.Immutable = &MySlice{}
 
-func NewMySlice(s ...*string) *MySlice {
-	c := make([]*string, len(s))
+func NewMySlice(s ...string) *MySlice {
+	c := make([]string, len(s))
 	copy(c, s)
 
 	return &MySlice{
@@ -158,7 +183,7 @@ func NewMySlice(s ...*string) *MySlice {
 }
 
 func NewMySliceLen(l int) *MySlice {
-	c := make([]*string, l)
+	c := make([]string, l)
 
 	return &MySlice{
 		theSlice: c,
@@ -177,13 +202,17 @@ func (m *MySlice) Len() int {
 	return len(m.theSlice)
 }
 
-func (m *MySlice) Get(i int) *string {
+func (m *MySlice) Get(i int) string {
 	return m.theSlice[i]
 }
 
 func (m *MySlice) AsMutable() *MySlice {
 	if m == nil {
 		return nil
+	}
+
+	if m.Mutable() {
+		return m
 	}
 
 	res := m.dup()
@@ -193,7 +222,7 @@ func (m *MySlice) AsMutable() *MySlice {
 }
 
 func (m *MySlice) dup() *MySlice {
-	resSlice := make([]*string, len(m.theSlice))
+	resSlice := make([]string, len(m.theSlice))
 
 	for i := range m.theSlice {
 		resSlice[i] = m.theSlice[i]
@@ -206,17 +235,20 @@ func (m *MySlice) dup() *MySlice {
 	return res
 }
 
-func (m *MySlice) AsImmutable() *MySlice {
+func (m *MySlice) AsImmutable(v *MySlice) *MySlice {
 	if m == nil {
 		return nil
 	}
 
-	m.mutable = false
+	if v == m {
+		return m
+	}
 
+	m.mutable = false
 	return m
 }
 
-func (m *MySlice) Range() []*string {
+func (m *MySlice) Range() []string {
 	if m == nil {
 		return nil
 	}
@@ -224,17 +256,24 @@ func (m *MySlice) Range() []*string {
 	return m.theSlice
 }
 
-func (m *MySlice) WithMutations(f func(mi *MySlice)) *MySlice {
+func (m *MySlice) WithMutable(f func(mi *MySlice)) *MySlice {
 	res := m.AsMutable()
 	f(res)
-	res = res.AsImmutable()
-
-	// TODO optimise here if the maps are identical?
+	res = res.AsImmutable(m)
 
 	return res
 }
 
-func (m *MySlice) Set(i int, v *string) *MySlice {
+func (m *MySlice) WithImmutable(f func(mi *MySlice)) *MySlice {
+	prev := m.mutable
+	m.mutable = false
+	f(m)
+	m.mutable = prev
+
+	return m
+}
+
+func (m *MySlice) Set(i int, v string) *MySlice {
 	if m.mutable {
 		m.theSlice[i] = v
 		return m
@@ -246,7 +285,7 @@ func (m *MySlice) Set(i int, v *string) *MySlice {
 	return res
 }
 
-func (m *MySlice) Append(v ...*string) *MySlice {
+func (m *MySlice) Append(v ...string) *MySlice {
 	if m.mutable {
 		m.theSlice = append(m.theSlice, v...)
 		return m
@@ -278,17 +317,30 @@ type MyStruct struct {
 	_fieldWithoutTag bool
 
 	mutable bool
+	__tmpl  _Imm_MyStruct
 }
 
 var _ immutable.Immutable = &MyStruct{}
 
 func (s *MyStruct) AsMutable() *MyStruct {
+	if s.Mutable() {
+		return s
+	}
+
 	res := *s
 	res.mutable = true
 	return &res
 }
 
-func (s *MyStruct) AsImmutable() *MyStruct {
+func (s *MyStruct) AsImmutable(v *MyStruct) *MyStruct {
+	if s == nil {
+		return nil
+	}
+
+	if s == v {
+		return s
+	}
+
 	s.mutable = false
 	return s
 }
@@ -297,12 +349,21 @@ func (s *MyStruct) Mutable() bool {
 	return s.mutable
 }
 
-func (s *MyStruct) WithMutations(f func(si *MyStruct)) *MyStruct {
+func (s *MyStruct) WithMutable(f func(si *MyStruct)) *MyStruct {
 	res := s.AsMutable()
 	f(res)
-	res = res.AsImmutable()
+	res = res.AsImmutable(s)
 
 	return res
+}
+
+func (s *MyStruct) WithImmutable(f func(si *MyStruct)) *MyStruct {
+	prev := s.mutable
+	s.mutable = false
+	f(s)
+	s.mutable = prev
+
+	return s
 }
 
 // my field comment
