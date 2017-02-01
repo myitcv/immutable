@@ -12,7 +12,6 @@ import (
 	"go/printer"
 	"go/token"
 	"log"
-	"os"
 	"strings"
 	"text/template"
 
@@ -228,14 +227,15 @@ func (o *output) genImmTypes() {
 			infof("failed to format %v: %v", fn, err)
 		}
 
-		of, err := os.Create(offn)
+		wrote, err := gogenerate.WriteIfDiff(toWrite, offn)
 		if err != nil {
-			fatalf("unable to create file %v: %v", offn, err)
+			fatalf("could not write %v: %v", offn, err)
 		}
 
-		_, err = of.Write(toWrite)
-		if err != nil {
-			fatalf("unable to write to file %v: %v", offn, err)
+		if wrote {
+			infof("writing %v", offn)
+		} else {
+			infof("skipping writing of %v; it's identical", offn)
 		}
 	}
 }

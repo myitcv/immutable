@@ -49,7 +49,7 @@ import (
 // A generator represents the state of a single Go source file
 // being scanned for generator commands.
 type generator struct {
-	f        func(dirArgs []string)
+	f        func(line int, dirArgs []string) error
 	r        io.Reader
 	path     string // full rooted path name.
 	dir      string // full rooted directory of file.
@@ -63,7 +63,7 @@ type generator struct {
 // DirFunc runs f(cmds) on each go generate directive (as defined by
 // go generate -help) found in the absolute-named file that is part
 // of package pkg
-func DirFunc(pkg string, name string, f func(dirArgs []string)) error {
+func DirFunc(pkg string, name string, f func(line int, dirArgs []string) error) error {
 	fi, err := os.Open(name)
 	if err != nil {
 		return err
@@ -140,7 +140,10 @@ func (g *generator) matches() (err error) {
 			continue
 		}
 
-		g.f(words)
+		err := g.f(g.lineNum, words)
+		if err != nil {
+			g.errorf("callback error: %v", err)
+		}
 	}
 	if err != nil && err != io.EOF {
 		g.errorf("error reading")

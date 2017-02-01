@@ -22,17 +22,25 @@ type MyMap struct {
 
 	theMap  map[string]MySlice
 	mutable bool
+	__tmpl  _Imm_MyMap
 }
 
 var _ immutable.Immutable = &MyMap{}
 
-func NewMyMap() *MyMap {
-	return &MyMap{
-		theMap: make(map[string]MySlice),
+func NewMyMap(inits ...func(m *MyMap)) *MyMap {
+	res := NewMyMapCap(0)
+	if len(inits) == 0 {
+		return res
 	}
+
+	return res.WithMutable(func(m *MyMap) {
+		for _, i := range inits {
+			i(m)
+		}
+	})
 }
 
-func NewMyMapLen(l int) *MyMap {
+func NewMyMapCap(l int) *MyMap {
 	return &MyMap{
 		theMap: make(map[string]MySlice, l),
 	}
@@ -60,6 +68,10 @@ func (m *MyMap) AsMutable() *MyMap {
 		return nil
 	}
 
+	if m.Mutable() {
+		return m
+	}
+
 	res := m.dup()
 	res.mutable = true
 
@@ -80,13 +92,16 @@ func (m *MyMap) dup() *MyMap {
 	return res
 }
 
-func (m *MyMap) AsImmutable() *MyMap {
+func (m *MyMap) AsImmutable(v *MyMap) *MyMap {
 	if m == nil {
 		return nil
 	}
 
-	m.mutable = false
+	if v == m {
+		return m
+	}
 
+	m.mutable = false
 	return m
 }
 
@@ -98,12 +113,21 @@ func (m *MyMap) Range() map[string]MySlice {
 	return m.theMap
 }
 
-func (m *MyMap) WithMutations(f func(mi *MyMap)) *MyMap {
+func (m *MyMap) WithMutable(f func(mi *MyMap)) *MyMap {
 	res := m.AsMutable()
 	f(res)
-	res = res.AsImmutable()
+	res = res.AsImmutable(m)
 
 	return res
+}
+
+func (m *MyMap) WithImmutable(f func(mi *MyMap)) *MyMap {
+	prev := m.mutable
+	m.mutable = false
+	f(m)
+	m.mutable = prev
+
+	return m
 }
 
 func (m *MyMap) Set(k string, v MySlice) *MyMap {
@@ -145,6 +169,7 @@ type MySlice struct {
 
 	theSlice []MyMap
 	mutable  bool
+	__tmpl   _Imm_MySlice
 }
 
 var _ immutable.Immutable = &MySlice{}
@@ -187,6 +212,10 @@ func (m *MySlice) AsMutable() *MySlice {
 		return nil
 	}
 
+	if m.Mutable() {
+		return m
+	}
+
 	res := m.dup()
 	res.mutable = true
 
@@ -207,13 +236,16 @@ func (m *MySlice) dup() *MySlice {
 	return res
 }
 
-func (m *MySlice) AsImmutable() *MySlice {
+func (m *MySlice) AsImmutable(v *MySlice) *MySlice {
 	if m == nil {
 		return nil
 	}
 
-	m.mutable = false
+	if v == m {
+		return m
+	}
 
+	m.mutable = false
 	return m
 }
 
@@ -225,14 +257,21 @@ func (m *MySlice) Range() []MyMap {
 	return m.theSlice
 }
 
-func (m *MySlice) WithMutations(f func(mi *MySlice)) *MySlice {
+func (m *MySlice) WithMutable(f func(mi *MySlice)) *MySlice {
 	res := m.AsMutable()
 	f(res)
-	res = res.AsImmutable()
-
-	// TODO optimise here if the maps are identical?
+	res = res.AsImmutable(m)
 
 	return res
+}
+
+func (m *MySlice) WithImmutable(f func(mi *MySlice)) *MySlice {
+	prev := m.mutable
+	m.mutable = false
+	f(m)
+	m.mutable = prev
+
+	return m
 }
 
 func (m *MySlice) Set(i int, v MyMap) *MySlice {
@@ -281,17 +320,30 @@ type MyStruct struct {
 	_age     int `tag:"age"`
 
 	mutable bool
+	__tmpl  _Imm_MyStruct
 }
 
 var _ immutable.Immutable = &MyStruct{}
 
 func (s *MyStruct) AsMutable() *MyStruct {
+	if s.Mutable() {
+		return s
+	}
+
 	res := *s
 	res.mutable = true
 	return &res
 }
 
-func (s *MyStruct) AsImmutable() *MyStruct {
+func (s *MyStruct) AsImmutable(v *MyStruct) *MyStruct {
+	if s == nil {
+		return nil
+	}
+
+	if s == v {
+		return s
+	}
+
 	s.mutable = false
 	return s
 }
@@ -300,12 +352,21 @@ func (s *MyStruct) Mutable() bool {
 	return s.mutable
 }
 
-func (s *MyStruct) WithMutations(f func(si *MyStruct)) *MyStruct {
+func (s *MyStruct) WithMutable(f func(si *MyStruct)) *MyStruct {
 	res := s.AsMutable()
 	f(res)
-	res = res.AsImmutable()
+	res = res.AsImmutable(s)
 
 	return res
+}
+
+func (s *MyStruct) WithImmutable(f func(si *MyStruct)) *MyStruct {
+	prev := s.mutable
+	s.mutable = false
+	f(s)
+	s.mutable = prev
+
+	return s
 }
 
 // Name is a field in MyStruct

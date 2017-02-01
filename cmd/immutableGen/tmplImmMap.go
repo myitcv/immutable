@@ -6,13 +6,20 @@ package main
 const immMapTmpl = `
 var _ immutable.Immutable = &{{.Name}}{}
 
-func {{Export "New"}}{{Capitalise .Name}}() *{{.Name}} {
-	return &{{.Name}}{
-		theMap: make(map[{{.KeyType}}]{{.ValType}}),
+func {{Export "New"}}{{Capitalise .Name}}(inits ...func(m *{{.Name}})) *{{.Name}} {
+	res := {{Export "New"}}{{Capitalise .Name}}Cap(0)
+	if len(inits) == 0 {
+		return res
 	}
+
+	return res.WithMutable(func (m *{{.Name}}) {
+		for _, i := range inits {
+			i(m)
+		}
+	})
 }
 
-func {{Export "New"}}{{Capitalise .Name}}Len(l int) *{{.Name}} {
+func {{Export "New"}}{{Capitalise .Name}}Cap(l int) *{{.Name}} {
 	return &{{.Name}}{
 		theMap: make(map[{{.KeyType}}]{{.ValType}}, l),
 	}
@@ -40,6 +47,10 @@ func (m *{{.Name}}) AsMutable() *{{.Name}} {
 		return nil
 	}
 
+	if m.Mutable() {
+		return m
+	}
+
 	res := m.dup()
 	res.mutable = true
 
@@ -60,13 +71,16 @@ func (m *{{.Name}}) dup() *{{.Name}} {
 	return res
 }
 
-func (m *{{.Name}}) AsImmutable() *{{.Name}} {
+func (m *{{.Name}}) AsImmutable(v *{{.Name}}) *{{.Name}} {
 	if m == nil {
 		return nil
 	}
 
-	m.mutable = false
+	if v == m {
+		return m
+	}
 
+	m.mutable = false
 	return m
 }
 
@@ -78,12 +92,21 @@ func (m *{{.Name}}) Range() map[{{.KeyType}}]{{.ValType}} {
 	return m.theMap
 }
 
-func (m *{{.Name}}) WithMutations(f func(mi *{{.Name}})) *{{.Name}} {
+func (m *{{.Name}}) WithMutable(f func(mi *{{.Name}})) *{{.Name}} {
 	res := m.AsMutable()
 	f(res)
-	res = res.AsImmutable()
+	res = res.AsImmutable(m)
 
 	return res
+}
+
+func (m *{{.Name}}) WithImmutable(f func(mi *{{.Name}})) *{{.Name}} {
+	prev := m.mutable
+	m.mutable = false
+	f(m)
+	m.mutable = prev
+
+	return m
 }
 
 func (m *{{.Name}}) Set(k {{.KeyType}}, v {{.ValType}}) *{{.Name}} {

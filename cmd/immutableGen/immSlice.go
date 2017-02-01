@@ -40,6 +40,7 @@ func (o *output) genImmSlices(slices []immSlice) {
 
 		o.pfln("theSlice []%v", blanks.Type)
 		o.pln("mutable bool")
+		o.pfln("__tmpl %v%v", immutable.ImmTypeTemplPrefix, s.name)
 
 		// end of struct
 		o.pfln("}")

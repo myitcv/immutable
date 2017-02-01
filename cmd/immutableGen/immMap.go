@@ -42,6 +42,7 @@ func (o *output) genImmMaps(maps []immMap) {
 
 		o.pfln("theMap map[%v]%v", blanks.KeyType, blanks.ValType)
 		o.pln("mutable bool")
+		o.pfln("__tmpl %v%v", immutable.ImmTypeTemplPrefix, m.name)
 
 		// end of struct
 		o.pfln("}")

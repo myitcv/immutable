@@ -66,6 +66,7 @@ func (o *output) genImmStructs(structs []immStruct) {
 
 		o.pln("")
 		o.pln("mutable bool")
+		o.pfln("__tmpl %v%v", immutable.ImmTypeTemplPrefix, s.name)
 
 		// end of struct
 		o.pfln("}")
@@ -79,12 +80,24 @@ func (o *output) genImmStructs(structs []immStruct) {
 
 		o.pt(`
 		func (s *{{.}}) AsMutable() *{{.}} {
+			if s.Mutable() {
+				return s
+			}
+
 			res := *s
 			res.mutable = true
 			return &res
 		}
 
-		func (s *{{.}}) AsImmutable() *{{.}} {
+		func (s *{{.}}) AsImmutable(v *{{.}}) *{{.}} {
+			if s == nil {
+				return nil
+			}
+
+			if s == v {
+				return s
+			}
+
 			s.mutable = false
 			return s
 		}
@@ -93,12 +106,21 @@ func (o *output) genImmStructs(structs []immStruct) {
 			return s.mutable
 		}
 
-		func (s *{{.}}) WithMutations(f func(si *{{.}})) *{{.}} {
+		func (s *{{.}}) WithMutable(f func(si *{{.}})) *{{.}} {
 			res := s.AsMutable()
 			f(res)
-			res = res.AsImmutable()
+			res = res.AsImmutable(s)
 
 			return res
+		}
+
+		func (s *{{.}}) WithImmutable(f func(si *{{.}})) *{{.}} {
+			prev := s.mutable
+			s.mutable = false
+			f(s)
+			s.mutable = prev
+
+			return s
 		}
 		`, exp, s.name)
 
