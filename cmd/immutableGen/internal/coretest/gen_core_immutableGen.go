@@ -305,6 +305,8 @@ func (m *MySlice) Append(v ...string) *MySlice {
 // 		Name, surname	string
 // 		age		int
 //
+// 		*string
+//
 // 		fieldWithoutTag	bool
 // 	}
 //
@@ -314,6 +316,7 @@ type MyStruct struct {
 
 	_Name, _surname  string `tag:"value"`
 	_age             int    `tag:"age"`
+	_string          *string
 	_fieldWithoutTag bool
 
 	mutable bool
@@ -424,6 +427,21 @@ func (s *MyStruct) setAge(n int) *MyStruct {
 
 	res := *s
 	res._age = n
+	return &res
+}
+func (s *MyStruct) string() *string {
+	return s._string
+}
+
+// setString is the setter for String()
+func (s *MyStruct) setString(n *string) *MyStruct {
+	if s.mutable {
+		s._string = n
+		return s
+	}
+
+	res := *s
+	res._string = n
 	return &res
 }
 func (s *MyStruct) fieldWithoutTag() bool {

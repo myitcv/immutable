@@ -50,16 +50,26 @@ func (o *output) genImmStructs(structs []immStruct) {
 				tag = f.Tag.Value
 			}
 
-			for _, n := range f.Names {
-				names = names + sep + fieldHidingPrefix + n.Name
-				sep = ", "
+			if len(f.Names) == 0 {
+				n := strings.TrimPrefix(typ, "*")
+				names = fieldHidingPrefix + n
 
 				fields = append(fields, genField{
-					Name: n.Name,
+					Name: n,
 					Type: typ,
 					f:    f,
 				})
+			} else {
+				for _, n := range f.Names {
+					names = names + sep + fieldHidingPrefix + n.Name
+					sep = ", "
 
+					fields = append(fields, genField{
+						Name: n.Name,
+						Type: typ,
+						f:    f,
+					})
+				}
 			}
 			o.pfln("%v %v %v", names, typ, tag)
 		}
