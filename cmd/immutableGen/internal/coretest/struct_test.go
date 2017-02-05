@@ -316,3 +316,51 @@ func TestMyStructSetNameMutableReceiver(t *testing.T) {
 		t.Fatalf("s2 should be mutable")
 	}
 }
+
+func TestSpecialVersionBump(t *testing.T) {
+	s1 := new(coretest.MyStruct)
+
+	if v := s1.Key().Version; v != 0 {
+		t.Fatalf("expected version 0 as initial value, got %v", v)
+	}
+
+	s2 := s1.AsMutable()
+
+	if v := s1.Key().Version; v != 0 {
+		t.Fatalf("expected version 0 as initial value, got %v", v)
+	}
+
+	if v := s2.Key().Version; v != 1 {
+		t.Fatalf("expected version 1 as initial value, got %v", v)
+	}
+
+	s2.AsImmutable(s1)
+
+	if v := s1.Key().Version; v != 0 {
+		t.Fatalf("expected version 0 as initial value, got %v", v)
+	}
+
+	if v := s2.Key().Version; v != 1 {
+		t.Fatalf("expected version 1 as initial value, got %v", v)
+	}
+
+	s3 := s2.SetName("test")
+
+	if v := s2.Key().Version; v != 1 {
+		t.Fatalf("expected version 1 as initial value, got %v", v)
+	}
+
+	if v := s3.Key().Version; v != 2 {
+		t.Fatalf("expected version 2 as initial value, got %v", v)
+	}
+
+	s3.AsImmutable(s2)
+
+	if v := s2.Key().Version; v != 1 {
+		t.Fatalf("expected version 1 as initial value, got %v", v)
+	}
+
+	if v := s3.Key().Version; v != 2 {
+		t.Fatalf("expected version 2 as initial value, got %v", v)
+	}
+}

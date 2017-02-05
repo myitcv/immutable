@@ -149,10 +149,11 @@ func gatherImmTypes(fset *token.FileSet, file *ast.File) *fileTmpls {
 
 			case *ast.StructType:
 				g.structs = append(g.structs, immStruct{
-					fset: fset,
-					name: name,
-					dec:  gd,
-					st:   typ,
+					fset:    fset,
+					name:    name,
+					dec:     gd,
+					st:      typ,
+					special: isSpecialStruct(name, typ),
 				})
 
 				ast.Walk(impf, ts.Type)
@@ -161,6 +162,42 @@ func gatherImmTypes(fset *token.FileSet, file *ast.File) *fileTmpls {
 	}
 
 	return g
+}
+
+func isSpecialStruct(name string, st *ast.StructType) bool {
+	// work out whether this is a special struct with a Key field
+	// pattern is:
+	//
+	// 1. struct field has a field called Key of type {{.StructName}}Key (non pointer)
+	//
+	// later checks will include:
+	//
+	// 2. said type has two fields, Uuid and Version, of type {{.StructName}}Uuid and uint64 respectively
+	// 3. the underlying type of {{.StructName}}Uuid is uint64 (we might be able to relax these two
+	// two underlying type restrictions)
+
+	if st.Fields == nil {
+		return false
+	}
+
+	for _, f := range st.Fields.List {
+		idt, ok := f.Type.(*ast.Ident)
+		if !ok {
+			continue
+		}
+
+		if idt.Name != name+"Key" {
+			continue
+		}
+
+		for _, fn := range f.Names {
+			if fn.Name == "Key" {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (o *output) genImmTypes() {
