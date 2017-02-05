@@ -129,4 +129,8 @@ func (m *{{.Name}}) Append(v ...{{.Type}}) *{{.Name}} {
 
 	return res
 }
+
+func (m *{{.Name}}) AppendSlice(v *{{.Name}}) *{{.Name}} {
+	return m.Append(v.Range()...)
+}
 `

@@ -4,14 +4,13 @@
 package immutable
 
 import (
-	"fmt"
 	"go/ast"
 	"strings"
 )
 
 const (
-	// ImmTypeTemplPrefix is the prefix used to identify immutable type templates
-	ImmTypeTemplPrefix = "_Imm_"
+	// ImmTypeTmplPrefix is the prefix used to identify immutable type templates
+	ImmTypeTmplPrefix = "_Imm_"
 
 	// Pkg is the import path of this package
 	PkgImportPath = "github.com/myitcv/immutable"
@@ -36,59 +35,32 @@ type Immutable interface {
 }
 
 // IsImmTmpl determines whether the supplied type spec is an immutable template type (either a struct,
-// slice or map), returning the name of the type with the ImmTypeTemplPrefix removed in that case
+// slice or map), returning the name of the type with the ImmTypeTmplPrefix removed in that case
 func IsImmTmpl(ts *ast.TypeSpec) (string, bool) {
 	typName := ts.Name.Name
 
-	if !strings.HasPrefix(typName, ImmTypeTemplPrefix) {
+	if !strings.HasPrefix(typName, ImmTypeTmplPrefix) {
 		return "", false
 	}
 
-	name := strings.TrimPrefix(typName, ImmTypeTemplPrefix)
+	valid := false
+
+	switch typ := ts.Type.(type) {
+	case *ast.MapType:
+		valid = true
+	case *ast.ArrayType:
+		if typ.Len == nil {
+			valid = true
+		}
+	case *ast.StructType:
+		valid = true
+	}
+
+	if !valid {
+		return "", false
+	}
+
+	name := strings.TrimPrefix(typName, ImmTypeTmplPrefix)
 
 	return name, true
-}
-
-// IsImmType confirms whether the supplied declaration, which has to be found within the supplied
-// file, is the result of immutable generation
-func IsImmType(file *ast.File, ts *ast.TypeSpec) bool {
-	if ts.Pos() > file.End() || ts.Pos() < file.Pos() {
-		panic(fmt.Errorf("Declaration within supplied file"))
-	}
-
-	st, ok := ts.Type.(*ast.StructType)
-	if !ok {
-		return false
-	}
-
-	// we need to find the first comment group in the struct
-	// before the first field
-
-	// all our implementations have fields
-	if st.Fields.NumFields() == 0 {
-		return false
-	}
-
-	ffPos := st.Fields.List[0].Pos()
-
-	for _, cg := range file.Comments {
-		// is the comment group after the first field?
-		if cg.Pos() > ffPos {
-			break
-		}
-
-		if cg.Pos() > st.Pos() {
-			for _, c := range cg.List {
-				if c.Text == "//"+ImmTypeIdentifier {
-					return true
-				}
-			}
-
-			// now we can break because by definition we've exhausted
-			// the first comment group (of which there can be only one)
-			break
-		}
-	}
-
-	return false
 }

@@ -76,7 +76,7 @@ func (o *output) genImmStructs(structs []immStruct) {
 
 		o.pln("")
 		o.pln("mutable bool")
-		o.pfln("__tmpl %v%v", immutable.ImmTypeTemplPrefix, s.name)
+		o.pfln("__tmpl %v%v", immutable.ImmTypeTmplPrefix, s.name)
 
 		// end of struct
 		o.pfln("}")

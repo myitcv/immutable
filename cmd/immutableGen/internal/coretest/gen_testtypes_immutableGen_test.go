@@ -297,6 +297,10 @@ func (m *MyTestSlice) Append(v ...*string) *MyTestSlice {
 	return res
 }
 
+func (m *MyTestSlice) AppendSlice(v *MyTestSlice) *MyTestSlice {
+	return m.Append(v.Range()...)
+}
+
 // a comment about myStruct
 //
 // MyTestStruct is an immutable type and has the following template:

@@ -298,6 +298,10 @@ func (m *MySlice) Append(v ...MyMap) *MySlice {
 	return res
 }
 
+func (m *MySlice) AppendSlice(v *MySlice) *MySlice {
+	return m.Append(v.Range()...)
+}
+
 // MyStruct will be exported.
 //
 // It is a special type.
