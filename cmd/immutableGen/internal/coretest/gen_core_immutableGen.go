@@ -306,6 +306,8 @@ func (m *MySlice) AppendSlice(v *MySlice) *MySlice {
 // MyStruct is an immutable type and has the following template:
 //
 // 	struct {
+// 		Key	MyStructKey
+//
 // 		Name, surname	string
 // 		age		int
 //
@@ -316,8 +318,8 @@ func (m *MySlice) AppendSlice(v *MySlice) *MySlice {
 //
 type MyStruct struct {
 	//github.com/myitcv/immutable:ImmutableType
-	//somethingspecial
 
+	_Key             MyStructKey
 	_Name, _surname  string `tag:"value"`
 	_age             int    `tag:"age"`
 	_string          *string
@@ -335,6 +337,7 @@ func (s *MyStruct) AsMutable() *MyStruct {
 	}
 
 	res := *s
+	res._Key.Version++
 	res.mutable = true
 	return &res
 }
@@ -372,6 +375,22 @@ func (s *MyStruct) WithImmutable(f func(si *MyStruct)) *MyStruct {
 
 	return s
 }
+func (s *MyStruct) Key() MyStructKey {
+	return s._Key
+}
+
+// SetKey is the setter for Key()
+func (s *MyStruct) SetKey(n MyStructKey) *MyStruct {
+	if s.mutable {
+		s._Key = n
+		return s
+	}
+
+	res := *s
+	res._Key.Version++
+	res._Key = n
+	return &res
+}
 
 // my field comment
 //somethingspecial
@@ -392,6 +411,7 @@ func (s *MyStruct) SetName(n string) *MyStruct {
 	}
 
 	res := *s
+	res._Key.Version++
 	res._Name = n
 	return &res
 }
@@ -415,6 +435,7 @@ func (s *MyStruct) setSurname(n string) *MyStruct {
 	}
 
 	res := *s
+	res._Key.Version++
 	res._surname = n
 	return &res
 }
@@ -430,6 +451,7 @@ func (s *MyStruct) setAge(n int) *MyStruct {
 	}
 
 	res := *s
+	res._Key.Version++
 	res._age = n
 	return &res
 }
@@ -445,6 +467,7 @@ func (s *MyStruct) setString(n *string) *MyStruct {
 	}
 
 	res := *s
+	res._Key.Version++
 	res._string = n
 	return &res
 }
@@ -460,6 +483,7 @@ func (s *MyStruct) setFieldWithoutTag(n bool) *MyStruct {
 	}
 
 	res := *s
+	res._Key.Version++
 	res._fieldWithoutTag = n
 	return &res
 }
