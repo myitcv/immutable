@@ -32,7 +32,6 @@ func (o *output) genImmStructs(structs []immStruct) {
 
 		// start of struct
 		o.pfln("type %v struct {", s.name)
-		o.pfln("\t//%v", immutable.ImmTypeIdentifier)
 
 		o.printLeadSpecCommsFor(s.st)
 

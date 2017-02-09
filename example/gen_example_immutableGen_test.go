@@ -17,8 +17,6 @@ import (
 // 	map[string]int
 //
 type myTestMap struct {
-	//github.com/myitcv/immutable:ImmutableType
-
 	theMap  map[string]int
 	mutable bool
 	__tmpl  _Imm_myTestMap

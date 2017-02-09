@@ -37,7 +37,6 @@ func (o *output) genImmMaps(maps []immMap) {
 
 		// start of struct
 		o.pfln("type %v struct {", m.name)
-		o.pfln("\t//%v", immutable.ImmTypeIdentifier)
 		o.pln("")
 
 		o.pfln("theMap map[%v]%v", blanks.KeyType, blanks.ValType)

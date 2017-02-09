@@ -14,9 +14,6 @@ const (
 
 	// Pkg is the import path of this package
 	PkgImportPath = "github.com/myitcv/immutable"
-
-	// ImmTypeIdentifier should not be used; instead consider using IsImmType
-	ImmTypeIdentifier = PkgImportPath + ":ImmutableType"
 )
 
 // Immutable is the interface implemented by all immutable types. If Go had generics the interface would

@@ -18,8 +18,6 @@ import (
 // 	map[string]MySlice
 //
 type MyMap struct {
-	//github.com/myitcv/immutable:ImmutableType
-
 	theMap  map[string]MySlice
 	mutable bool
 	__tmpl  _Imm_MyMap
@@ -165,8 +163,6 @@ func (m *MyMap) Del(k string) *MyMap {
 // 	[]MyMap
 //
 type MySlice struct {
-	//github.com/myitcv/immutable:ImmutableType
-
 	theSlice []MyMap
 	mutable  bool
 	__tmpl   _Imm_MySlice
@@ -317,8 +313,6 @@ func (m *MySlice) AppendSlice(v *MySlice) *MySlice {
 // 	}
 //
 type MyStruct struct {
-	//github.com/myitcv/immutable:ImmutableType
-
 	_Name    string `tag:"value"`
 	_surname string
 	_age     int `tag:"age"`
