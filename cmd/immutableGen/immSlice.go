@@ -35,7 +35,6 @@ func (o *output) genImmSlices(slices []immSlice) {
 
 		// start of struct
 		o.pfln("type %v struct {", s.name)
-		o.pfln("\t//%v", immutable.ImmTypeIdentifier)
 		o.pln("")
 
 		o.pfln("theSlice []%v", blanks.Type)
