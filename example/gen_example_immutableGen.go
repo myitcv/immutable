@@ -156,6 +156,16 @@ func (m *MyMap) Del(k string) *MyMap {
 	return res
 }
 
+func (m *MyMap) ToMap() map[string]MySlice {
+	res := make(map[string]MySlice)
+
+	for k, v := range m.theMap {
+		res[k] = v
+	}
+
+	return res
+}
+
 // MySlice will be exported
 //
 // MySlice is an immutable type and has the following template:
@@ -296,6 +306,17 @@ func (m *MySlice) Append(v ...MyMap) *MySlice {
 
 func (m *MySlice) AppendSlice(v *MySlice) *MySlice {
 	return m.Append(v.Range()...)
+}
+
+func (m *MySlice) ToSlice() []MyMap {
+	if m == nil || m.theSlice == nil {
+		return nil
+	}
+
+	res := make([]MyMap, len(m.theSlice))
+	copy(res, m.theSlice)
+
+	return res
 }
 
 // MyStruct will be exported.
