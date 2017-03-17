@@ -1,9 +1,6 @@
 // Copyright (c) 2016 Paul Jolly <paul@myitcv.org.uk>, all rights reserved.
 // Use of this document is governed by a license found in the LICENSE document.
 
-// immutableGen is a go generate generator that creates immutable structs, maps
-// and slices from template type declarations.
-//
 package main
 
 import (
