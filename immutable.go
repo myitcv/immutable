@@ -15,6 +15,11 @@ import (
 	"golang.org/x/tools/go/types/typeutil"
 )
 
+const (
+	CmdImmutableGen = "immutableGen"
+	CmdImmutableVet = "immutableVet"
+)
+
 type ImmType interface {
 	isImmType()
 }
