@@ -8,3 +8,4 @@ See [the `immutableGen` wiki](https://github.com/myitcv/immutable/wiki/immutable
 ### Contributors
 
 * [`@aprotopapas`](https://github.com/aprotopapas)
+* [`@subash-a`](https://github.com/subash-a)
