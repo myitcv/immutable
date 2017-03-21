@@ -16,10 +16,10 @@ import (
 //
 // MyMap is an immutable type and has the following template:
 //
-// 	map[string]MySlice
+// 	map[string]*MySlice
 //
 type MyMap struct {
-	theMap  map[string]MySlice
+	theMap  map[string]*MySlice
 	mutable bool
 	__tmpl  _Imm_MyMap
 }
@@ -42,7 +42,7 @@ func NewMyMap(inits ...func(m *MyMap)) *MyMap {
 
 func NewMyMapCap(l int) *MyMap {
 	return &MyMap{
-		theMap: make(map[string]MySlice, l),
+		theMap: make(map[string]*MySlice, l),
 	}
 }
 
@@ -58,7 +58,7 @@ func (m *MyMap) Len() int {
 	return len(m.theMap)
 }
 
-func (m *MyMap) Get(k string) (MySlice, bool) {
+func (m *MyMap) Get(k string) (*MySlice, bool) {
 	v, ok := m.theMap[k]
 	return v, ok
 }
@@ -79,7 +79,7 @@ func (m *MyMap) AsMutable() *MyMap {
 }
 
 func (m *MyMap) dup() *MyMap {
-	resMap := make(map[string]MySlice, len(m.theMap))
+	resMap := make(map[string]*MySlice, len(m.theMap))
 
 	for k := range m.theMap {
 		resMap[k] = m.theMap[k]
@@ -105,7 +105,7 @@ func (m *MyMap) AsImmutable(v *MyMap) *MyMap {
 	return m
 }
 
-func (m *MyMap) Range() map[string]MySlice {
+func (m *MyMap) Range() map[string]*MySlice {
 	if m == nil {
 		return nil
 	}
@@ -130,7 +130,7 @@ func (m *MyMap) WithImmutable(f func(mi *MyMap)) *MyMap {
 	return m
 }
 
-func (m *MyMap) Set(k string, v MySlice) *MyMap {
+func (m *MyMap) Set(k string, v *MySlice) *MyMap {
 	if m.mutable {
 		m.theMap[k] = v
 		return m
@@ -158,24 +158,14 @@ func (m *MyMap) Del(k string) *MyMap {
 	return res
 }
 
-func (m *MyMap) ToMap() map[string]MySlice {
-	res := make(map[string]MySlice)
-
-	for k, v := range m.theMap {
-		res[k] = v
-	}
-
-	return res
-}
-
 // MySlice will be exported
 //
 // MySlice is an immutable type and has the following template:
 //
-// 	[]MyMap
+// 	[]*MyMap
 //
 type MySlice struct {
-	theSlice []MyMap
+	theSlice []*MyMap
 	mutable  bool
 	__tmpl   _Imm_MySlice
 }
@@ -183,8 +173,8 @@ type MySlice struct {
 var _ immutable.Immutable = new(MySlice)
 var _ = new(MySlice).__tmpl
 
-func NewMySlice(s ...MyMap) *MySlice {
-	c := make([]MyMap, len(s))
+func NewMySlice(s ...*MyMap) *MySlice {
+	c := make([]*MyMap, len(s))
 	copy(c, s)
 
 	return &MySlice{
@@ -193,7 +183,7 @@ func NewMySlice(s ...MyMap) *MySlice {
 }
 
 func NewMySliceLen(l int) *MySlice {
-	c := make([]MyMap, l)
+	c := make([]*MyMap, l)
 
 	return &MySlice{
 		theSlice: c,
@@ -212,7 +202,7 @@ func (m *MySlice) Len() int {
 	return len(m.theSlice)
 }
 
-func (m *MySlice) Get(i int) MyMap {
+func (m *MySlice) Get(i int) *MyMap {
 	return m.theSlice[i]
 }
 
@@ -232,7 +222,7 @@ func (m *MySlice) AsMutable() *MySlice {
 }
 
 func (m *MySlice) dup() *MySlice {
-	resSlice := make([]MyMap, len(m.theSlice))
+	resSlice := make([]*MyMap, len(m.theSlice))
 
 	for i := range m.theSlice {
 		resSlice[i] = m.theSlice[i]
@@ -258,7 +248,7 @@ func (m *MySlice) AsImmutable(v *MySlice) *MySlice {
 	return m
 }
 
-func (m *MySlice) Range() []MyMap {
+func (m *MySlice) Range() []*MyMap {
 	if m == nil {
 		return nil
 	}
@@ -283,7 +273,7 @@ func (m *MySlice) WithImmutable(f func(mi *MySlice)) *MySlice {
 	return m
 }
 
-func (m *MySlice) Set(i int, v MyMap) *MySlice {
+func (m *MySlice) Set(i int, v *MyMap) *MySlice {
 	if m.mutable {
 		m.theSlice[i] = v
 		return m
@@ -295,7 +285,7 @@ func (m *MySlice) Set(i int, v MyMap) *MySlice {
 	return res
 }
 
-func (m *MySlice) Append(v ...MyMap) *MySlice {
+func (m *MySlice) Append(v ...*MyMap) *MySlice {
 	if m.mutable {
 		m.theSlice = append(m.theSlice, v...)
 		return m
@@ -303,21 +293,6 @@ func (m *MySlice) Append(v ...MyMap) *MySlice {
 
 	res := m.dup()
 	res.theSlice = append(res.theSlice, v...)
-
-	return res
-}
-
-func (m *MySlice) AppendSlice(v *MySlice) *MySlice {
-	return m.Append(v.Range()...)
-}
-
-func (m *MySlice) ToSlice() []MyMap {
-	if m == nil || m.theSlice == nil {
-		return nil
-	}
-
-	res := make([]MyMap, len(m.theSlice))
-	copy(res, m.theSlice)
 
 	return res
 }

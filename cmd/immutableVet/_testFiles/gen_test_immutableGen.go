@@ -146,21 +146,6 @@ func (m *intS) Append(v ...int) *intS {
 	return res
 }
 
-func (m *intS) AppendSlice(v *intS) *intS {
-	return m.Append(v.Range()...)
-}
-
-func (m *intS) ToSlice() []int {
-	if m == nil || m.theSlice == nil {
-		return nil
-	}
-
-	res := make([]int, len(m.theSlice))
-	copy(res, m.theSlice)
-
-	return res
-}
-
 //
 // Dummy is an immutable type and has the following template:
 //

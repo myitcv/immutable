@@ -157,16 +157,6 @@ func (m *MyMap) Del(k string) *MyMap {
 	return res
 }
 
-func (m *MyMap) ToMap() map[string]int {
-	res := make(map[string]int)
-
-	for k, v := range m.theMap {
-		res[k] = v
-	}
-
-	return res
-}
-
 // a comment about Slice
 //
 // MySlice is an immutable type and has the following template:
@@ -306,21 +296,6 @@ func (m *MySlice) Append(v ...string) *MySlice {
 	return res
 }
 
-func (m *MySlice) AppendSlice(v *MySlice) *MySlice {
-	return m.Append(v.Range()...)
-}
-
-func (m *MySlice) ToSlice() []string {
-	if m == nil || m.theSlice == nil {
-		return nil
-	}
-
-	res := make([]string, len(m.theSlice))
-	copy(res, m.theSlice)
-
-	return res
-}
-
 // a comment about myStruct
 //
 // MyStruct is an immutable type and has the following template:
@@ -331,7 +306,7 @@ func (m *MySlice) ToSlice() []string {
 // 		Name, surname	string
 // 		age		int
 //
-// 		*string
+// 		string
 //
 // 		fieldWithoutTag	bool
 // 	}
@@ -340,7 +315,7 @@ type MyStruct struct {
 	_Key             MyStructKey
 	_Name, _surname  string `tag:"value"`
 	_age             int    `tag:"age"`
-	_string          *string
+	_string          string
 	_fieldWithoutTag bool
 
 	mutable bool
@@ -474,12 +449,12 @@ func (s *MyStruct) setAge(n int) *MyStruct {
 	res._age = n
 	return &res
 }
-func (s *MyStruct) string() *string {
+func (s *MyStruct) string() string {
 	return s._string
 }
 
 // setString is the setter for String()
-func (s *MyStruct) setString(n *string) *MyStruct {
+func (s *MyStruct) setString(n string) *MyStruct {
 	if s.mutable {
 		s._string = n
 		return s
