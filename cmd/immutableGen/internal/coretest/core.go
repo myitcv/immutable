@@ -29,7 +29,7 @@ type _Imm_MyStruct struct {
 	Name, surname string `tag:"value"`
 	age           int    `tag:"age"`
 
-	*string
+	string
 
 	fieldWithoutTag bool
 }

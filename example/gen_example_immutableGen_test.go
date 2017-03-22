@@ -156,13 +156,3 @@ func (m *myTestMap) Del(k string) *myTestMap {
 
 	return res
 }
-
-func (m *myTestMap) ToMap() map[string]int {
-	res := make(map[string]int)
-
-	for k, v := range m.theMap {
-		res[k] = v
-	}
-
-	return res
-}

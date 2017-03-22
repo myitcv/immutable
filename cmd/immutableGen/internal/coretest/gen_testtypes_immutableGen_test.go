@@ -157,16 +157,6 @@ func (m *MyTestMap) Del(k string) *MyTestMap {
 	return res
 }
 
-func (m *MyTestMap) ToMap() map[string]int {
-	res := make(map[string]int)
-
-	for k, v := range m.theMap {
-		res[k] = v
-	}
-
-	return res
-}
-
 // a comment about Slice
 //
 // MyTestSlice is an immutable type and has the following template:
@@ -302,21 +292,6 @@ func (m *MyTestSlice) Append(v ...*string) *MyTestSlice {
 
 	res := m.dup()
 	res.theSlice = append(res.theSlice, v...)
-
-	return res
-}
-
-func (m *MyTestSlice) AppendSlice(v *MyTestSlice) *MyTestSlice {
-	return m.Append(v.Range()...)
-}
-
-func (m *MyTestSlice) ToSlice() []*string {
-	if m == nil || m.theSlice == nil {
-		return nil
-	}
-
-	res := make([]*string, len(m.theSlice))
-	copy(res, m.theSlice)
 
 	return res
 }
