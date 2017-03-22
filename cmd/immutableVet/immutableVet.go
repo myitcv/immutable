@@ -51,9 +51,6 @@ type immutableVetter struct {
 
 var typesCache = map[string]bool{
 	"time.Time": true,
-
-	// TODO remove this hack
-	"*time.Time": true,
 }
 
 type immErr struct {
