@@ -12,6 +12,7 @@ import (
 	"go/printer"
 	"go/token"
 	"log"
+	"os"
 	"strings"
 	"text/template"
 
@@ -29,7 +30,11 @@ func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
 
 	fset := token.NewFileSet()
 
-	pkgs, err := parser.ParseDir(fset, dir, nil, parser.AllErrors|parser.ParseComments)
+	notGenByUs := func(fi os.FileInfo) bool {
+		return !gogenerate.FileGeneratedBy(fi.Name(), immutableGenCmd)
+	}
+
+	pkgs, err := parser.ParseDir(fset, dir, notGenByUs, parser.AllErrors|parser.ParseComments)
 	if err != nil {
 		fatalf("could not parse dir %v: %v", dir, err)
 	}
