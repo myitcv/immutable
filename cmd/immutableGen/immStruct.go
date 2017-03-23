@@ -53,6 +53,8 @@ func (o *output) genImmStructs(structs []immStruct) {
 
 			if len(f.Names) == 0 {
 				n := strings.TrimPrefix(typ, "*")
+				ps := strings.Split(n, ".")
+				n = ps[len(ps)-1]
 				names = fieldHidingPrefix + n
 
 				fields = append(fields, genField{

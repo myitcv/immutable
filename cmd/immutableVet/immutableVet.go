@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"go/ast"
 	"go/importer"
 	"go/parser"
+	"go/printer"
 	"go/token"
 	"go/types"
 	"os"
@@ -51,9 +53,6 @@ type immutableVetter struct {
 
 var typesCache = map[string]bool{
 	"time.Time": true,
-
-	// TODO remove this hack
-	"*time.Time": true,
 }
 
 type immErr struct {
@@ -458,21 +457,40 @@ func (iv *immutableVetter) vetPackages() []immErr {
 		ast.Walk(iv, pkg)
 
 		for exp, t := range info.Types {
-			if !t.IsType() {
-				continue
+			out := bytes.NewBuffer(nil)
+			printer.Fprint(out, fset, exp)
+
+			switch {
+			case t.IsType():
+				typ := t.Type
+
+				if !iv.isImmTmpl(typ) {
+					continue
+				}
+
+				fn := fset.Position(exp.Pos()).Filename
+
+				if !gogenerate.FileGeneratedBy(fn, immutable.CmdImmutableGen) {
+					iv.errorf(exp.Pos(), "template type %v should never get used", typ)
+				}
+
+			case t.IsValue():
+				p := types.NewPointer(t.Type)
+				switch immutable.IsImmType(p).(type) {
+				case immutable.ImmTypeMap:
+				case immutable.ImmTypeSlice:
+				case immutable.ImmTypeStruct:
+				default:
+					continue
+				}
+
+				fn := fset.Position(exp.Pos()).Filename
+
+				if !iv.skipFiles[fn] {
+					iv.errorf(exp.Pos(), "non-pointer value of immutable type %v found", p)
+				}
 			}
 
-			typ := t.Type
-
-			if !iv.isImmTmpl(typ) {
-				continue
-			}
-
-			fn := fset.Position(exp.Pos()).Filename
-
-			if !gogenerate.FileGeneratedBy(fn, immutable.CmdImmutableGen) {
-				iv.errorf(exp.Pos(), "template type %v should never get used", typ)
-			}
 		}
 
 		// find selector exprs which access properties of Immutable types
@@ -585,5 +603,9 @@ func (e errors) Less(i, j int) bool {
 		return l.Line < r.Line
 	}
 
-	return l.Column < r.Column
+	if l.Column != r.Column {
+		return l.Column < r.Column
+	}
+
+	return e[i].msg < e[j].msg
 }
