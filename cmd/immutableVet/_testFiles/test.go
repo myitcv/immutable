@@ -52,6 +52,9 @@ func main() {
 	for _ = range x.Range() {
 	}
 
+	y := *x
+	print(y)
+
 	_ = append([]int{}, x.Range()...)
 
 	x.Append(x.Range()...)
