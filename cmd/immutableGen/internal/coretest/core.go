@@ -34,5 +34,14 @@ type _Imm_MyStruct struct {
 	fieldWithoutTag bool
 }
 
+type _Imm_A struct {
+	Name string
+	A    *A
+}
+
+type _Imm_AS []*A
+
+type _Imm_AM map[*A]*A
+
 func main() {
 }

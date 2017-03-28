@@ -156,3 +156,13 @@ func (m *myTestMap) Del(k string) *myTestMap {
 
 	return res
 }
+func (s *myTestMap) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
+	if s == nil {
+		return true
+	}
+
+	if s.Mutable() {
+		return false
+	}
+	return true
+}
