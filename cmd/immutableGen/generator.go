@@ -8,11 +8,13 @@ import (
 	"bytes"
 	"fmt"
 	"go/ast"
+	"go/build"
 	"go/parser"
 	"go/printer"
 	"go/token"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 
@@ -27,6 +29,16 @@ const (
 )
 
 func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
+
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		fatalf("could not make absolute path from %v: %v", dir, err)
+	}
+
+	bpkg, err := build.ImportDir(absDir, 0)
+	if err != nil {
+		fatalf("could not resolve package from dir %v: %v", dir, err)
+	}
 
 	fset := token.NewFileSet()
 
@@ -59,6 +71,8 @@ func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
 		cms:       make(map[*ast.File]ast.CommentMap),
 	}
 
+	allTypes := make(map[string]immutable.ImmTypeAst)
+
 	for fn, f := range pkg.Files {
 		// skip files that we generated
 		if gogenerate.FileGeneratedBy(fn, immutableGenCmd) {
@@ -66,10 +80,30 @@ func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
 		}
 
 		cm := ast.NewCommentMap(fset, f, f.Comments)
-		og := gatherImmTypes(fset, f)
+		og := gatherImmTypes(bpkg.ImportPath, fset, f)
 		out.files[f] = og
+
+		for _, m := range og.maps {
+			allTypes[m.name] = immutable.ImmTypeAstMap{
+				Key:  m.keyTyp,
+				Elem: m.valTyp,
+			}
+		}
+
+		for _, s := range og.slices {
+			allTypes[s.name] = immutable.ImmTypeAstSlice{
+				Elem: s.valTyp,
+			}
+		}
+
+		for _, s := range og.structs {
+			allTypes[s.name] = immutable.ImmTypeAstStruct{}
+		}
+
 		out.cms[f] = cm
 	}
+
+	out.immTypes = allTypes
 
 	out.genImmTypes()
 }
@@ -85,6 +119,10 @@ type output struct {
 
 	curFile *ast.File
 
+	// a convenience map of all the imm types we will
+	// be generating in this package
+	immTypes map[string]immutable.ImmTypeAst
+
 	files map[*ast.File]*fileTmpls
 	cms   map[*ast.File]ast.CommentMap
 }
@@ -97,7 +135,7 @@ type fileTmpls struct {
 	structs []immStruct
 }
 
-func gatherImmTypes(fset *token.FileSet, file *ast.File) *fileTmpls {
+func gatherImmTypes(pkg string, fset *token.FileSet, file *ast.File) *fileTmpls {
 	g := &fileTmpls{
 		imports: make(map[*ast.ImportSpec]struct{}),
 	}
@@ -105,6 +143,12 @@ func gatherImmTypes(fset *token.FileSet, file *ast.File) *fileTmpls {
 	impf := &importFinder{
 		imports: file.Imports,
 		matches: g.imports,
+	}
+
+	comm := commonImm{
+		fset: fset,
+		file: file,
+		pkg:  pkg,
 	}
 
 	for _, d := range file.Decls {
@@ -117,7 +161,7 @@ func gatherImmTypes(fset *token.FileSet, file *ast.File) *fileTmpls {
 		for _, s := range gd.Specs {
 			ts := s.(*ast.TypeSpec)
 
-			name, ok := immutable.IsImmTmpl(ts)
+			name, ok := immutable.IsImmTmplAst(ts)
 			if !ok {
 				continue
 			}
@@ -127,12 +171,12 @@ func gatherImmTypes(fset *token.FileSet, file *ast.File) *fileTmpls {
 			switch typ := ts.Type.(type) {
 			case *ast.MapType:
 				g.maps = append(g.maps, immMap{
-					fset:   fset,
-					name:   name,
-					dec:    gd,
-					typ:    typ,
-					keyTyp: typ.Key,
-					valTyp: typ.Value,
+					commonImm: comm,
+					name:      name,
+					dec:       gd,
+					typ:       typ,
+					keyTyp:    typ.Key,
+					valTyp:    typ.Value,
 				})
 
 				ast.Walk(impf, ts.Type)
@@ -142,11 +186,11 @@ func gatherImmTypes(fset *token.FileSet, file *ast.File) *fileTmpls {
 
 				if typ.Len == nil {
 					g.slices = append(g.slices, immSlice{
-						fset:   fset,
-						name:   name,
-						dec:    gd,
-						typ:    typ,
-						valTyp: typ.Elt,
+						commonImm: comm,
+						name:      name,
+						dec:       gd,
+						typ:       typ,
+						valTyp:    typ.Elt,
 					})
 				}
 
@@ -154,11 +198,11 @@ func gatherImmTypes(fset *token.FileSet, file *ast.File) *fileTmpls {
 
 			case *ast.StructType:
 				g.structs = append(g.structs, immStruct{
-					fset:    fset,
-					name:    name,
-					dec:     gd,
-					st:      typ,
-					special: isSpecialStruct(name, typ),
+					commonImm: comm,
+					name:      name,
+					dec:       gd,
+					st:        typ,
+					special:   isSpecialStruct(name, typ),
 				})
 
 				ast.Walk(impf, ts.Type)

@@ -157,6 +157,35 @@ func (m *MyMap) Del(k string) *MyMap {
 
 	return res
 }
+func (s *MyMap) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
+	if s == nil {
+		return true
+	}
+
+	if s.Mutable() {
+		return false
+	}
+	if s.Len() == 0 {
+		return true
+	}
+
+	if seen == nil {
+		return s.IsDeeplyNonMutable(make(map[interface{}]bool))
+	}
+
+	if seen[s] {
+		return true
+	}
+
+	seen[s] = true
+
+	for _, v := range s.theMap {
+		if v != nil && !v.IsDeeplyNonMutable(seen) {
+			return false
+		}
+	}
+	return true
+}
 
 // MySlice will be exported
 //
@@ -296,6 +325,35 @@ func (m *MySlice) Append(v ...*MyMap) *MySlice {
 
 	return res
 }
+func (s *MySlice) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
+	if s == nil {
+		return true
+	}
+
+	if s.Mutable() {
+		return false
+	}
+	if s.Len() == 0 {
+		return true
+	}
+
+	if seen == nil {
+		return s.IsDeeplyNonMutable(make(map[interface{}]bool))
+	}
+
+	if seen[s] {
+		return true
+	}
+
+	seen[s] = true
+
+	for _, v := range s.theSlice {
+		if v != nil && !v.IsDeeplyNonMutable(seen) {
+			return false
+		}
+	}
+	return true
+}
 
 // MyStruct will be exported.
 //
@@ -308,13 +366,17 @@ func (m *MySlice) Append(v ...*MyMap) *MySlice {
 //
 // 		surname	string
 //
+// 		self	*MyStruct
+//
 // 		age	int
 // 	}
 //
 type MyStruct struct {
 	_Name    string `tag:"value"`
 	_surname string
-	_age     int `tag:"age"`
+	// isImm
+	_self *MyStruct
+	_age  int `tag:"age"`
 
 	mutable bool
 	__tmpl  _Imm_MyStruct
@@ -366,6 +428,33 @@ func (s *MyStruct) WithImmutable(f func(si *MyStruct)) *MyStruct {
 
 	return s
 }
+func (s *MyStruct) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
+	if s == nil {
+		return true
+	}
+
+	if s.Mutable() {
+		return false
+	}
+
+	if seen == nil {
+		return s.IsDeeplyNonMutable(make(map[interface{}]bool))
+	}
+
+	if seen[s] {
+		return true
+	}
+
+	seen[s] = true
+	{
+		v := s._self
+
+		if v != nil && !v.IsDeeplyNonMutable(seen) {
+			return false
+		}
+	}
+	return true
+}
 
 // Name is a field in MyStruct
 func (s *MyStruct) Name() string {
@@ -398,6 +487,21 @@ func (s *MyStruct) setSurname(n string) *MyStruct {
 
 	res := *s
 	res._surname = n
+	return &res
+}
+func (s *MyStruct) self() *MyStruct {
+	return s._self
+}
+
+// setSelf is the setter for Self()
+func (s *MyStruct) setSelf(n *MyStruct) *MyStruct {
+	if s.mutable {
+		s._self = n
+		return s
+	}
+
+	res := *s
+	res._self = n
 	return &res
 }
 

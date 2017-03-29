@@ -28,6 +28,8 @@ type _Imm_MyStruct struct {
 	// surname will not be exported
 	surname string
 
+	self *MyStruct
+
 	// age will not be exported
 	age int `tag:"age"`
 }

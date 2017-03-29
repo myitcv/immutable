@@ -9,7 +9,7 @@ type _Imm_Dummy struct {
 type _Imm_Dummy2 struct {
 	name    []byte // ERROR
 	other   *Dummy3
-	mine    MyIntf
+	mine    MyIntf // ERROR
 	another MyType // ERROR
 }
 
@@ -64,7 +64,7 @@ type MyIntf interface {
 	IsMyIntf()
 }
 
-type MyType []string // ERROR
+type MyType []string
 
 func (m MyType) IsMyIntf() {}
 
