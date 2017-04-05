@@ -878,7 +878,6 @@ func (s *MyStruct) setFieldWithoutTag(n bool) *MyStruct {
 //
 type A struct {
 	_Name string
-	// isImm
 	_A    *A
 	_Blah Blah
 

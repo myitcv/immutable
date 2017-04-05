@@ -187,7 +187,10 @@ func isAstTypeImm(pkgStr, typStr string, isPointer bool) (ImmTypeAst, error) {
 
 	// set initially to allow for early return
 	// when false
-	astTypeCache[key] = nil
+	var res ImmTypeAst
+	defer func() {
+		astTypeCache[key] = res
+	}()
 
 	var types []*ast.TypeSpec
 	meths := make(map[string]*ast.FuncDecl)
@@ -240,8 +243,6 @@ func isAstTypeImm(pkgStr, typStr string, isPointer bool) (ImmTypeAst, error) {
 					switch t := ts.Type.(type) {
 					case *ast.InterfaceType:
 
-						var res ImmTypeAst
-
 						ok, err := interfaceExtendsImmutable(pkgStr, t, f.Imports)
 						if err != nil {
 							return nil, err
@@ -250,7 +251,6 @@ func isAstTypeImm(pkgStr, typStr string, isPointer bool) (ImmTypeAst, error) {
 							res = ImmTypeAstExtIntf{}
 						}
 
-						astTypeCache[key] = res
 						return res, nil
 
 					case *ast.StructType:
@@ -322,17 +322,20 @@ func isAstTypeImm(pkgStr, typStr string, isPointer bool) (ImmTypeAst, error) {
 
 					switch {
 					case foundTheMap:
-						return ImmTypeAstMap{
+						res = ImmTypeAstMap{
 							Key:  key,
 							Elem: val,
-						}, nil
+						}
+
 					case foundTheSlice:
-						return ImmTypeAstSlice{
+						res = ImmTypeAstSlice{
 							Elem: val,
-						}, nil
+						}
 					default:
-						return ImmTypeAstStruct{}, nil
+						res = ImmTypeAstStruct{}
 					}
+
+					return res, nil
 				}
 			}
 		}
@@ -348,9 +351,7 @@ func isAstTypeImm(pkgStr, typStr string, isPointer bool) (ImmTypeAst, error) {
 		fullTypStr = "*" + fullTypStr
 	}
 
-	res := astImplsImm(fullTypStr, meths)
-
-	astTypeCache[key] = res
+	res = astImplsImm(fullTypStr, meths)
 
 	return res, nil
 }

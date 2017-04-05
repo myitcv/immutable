@@ -100,10 +100,6 @@ func (o *output) genImmStructs(structs []immStruct) {
 					})
 				}
 			}
-			switch isImm.(type) {
-			case util.ImmTypeAstMap, util.ImmTypeAstSlice, util.ImmTypeAstStruct:
-				o.pln("// isImm")
-			}
 			o.pfln("%v %v %v", names, typ, tag)
 		}
 
