@@ -374,9 +374,8 @@ func (s *MySlice) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 type MyStruct struct {
 	_Name    string `tag:"value"`
 	_surname string
-	// isImm
-	_self *MyStruct
-	_age  int `tag:"age"`
+	_self    *MyStruct
+	_age     int `tag:"age"`
 
 	mutable bool
 	__tmpl  _Imm_MyStruct

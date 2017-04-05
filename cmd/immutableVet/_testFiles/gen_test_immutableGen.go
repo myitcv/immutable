@@ -263,8 +263,7 @@ func (s *Dummy) SetName(n string) *Dummy {
 // 	}
 //
 type Dummy2 struct {
-	_name []byte
-	// isImm
+	_name    []byte
 	_other   *Dummy3
 	_mine    MyIntf
 	_another MyType
@@ -415,8 +414,6 @@ func (s *Dummy2) setAnother(n MyType) *Dummy2 {
 // 	}
 //
 type Dummy3 struct {
-
-	// isImm
 	_other *Dummy2
 
 	mutable bool
