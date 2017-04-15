@@ -5,8 +5,8 @@ import (
 	"go/token"
 	"strings"
 
-	"github.com/myitcv/immutable"
-	"github.com/myitcv/immutable/util"
+	"myitcv.io/immutable"
+	"myitcv.io/immutable/util"
 )
 
 type commonImm struct {

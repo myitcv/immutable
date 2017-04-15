@@ -27,8 +27,8 @@ export PATH=$GOPATH/bin:$PATH
 
 rm -f !(_vendor)/**/gen_*.go
 
-go install github.com/myitcv/immutable/cmd/immutableGen
-go install github.com/myitcv/immutable/cmd/immutableVet
+go install myitcv.io/immutable/cmd/immutableGen
+go install myitcv.io/immutable/cmd/immutableVet
 
 pushd cmd/immutableVet/_testFiles
 go generate

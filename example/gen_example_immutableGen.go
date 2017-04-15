@@ -9,7 +9,7 @@ package example
 //immutableVet:skipFile
 
 import (
-	"github.com/myitcv/immutable"
+	"myitcv.io/immutable"
 )
 
 // MyMap will be exported
