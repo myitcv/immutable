@@ -8,7 +8,7 @@ package coretest
 //immutableVet:skipFile
 
 import (
-	"github.com/myitcv/immutable"
+	"myitcv.io/immutable"
 )
 
 // a comment about MyMap

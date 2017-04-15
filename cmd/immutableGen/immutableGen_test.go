@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/myitcv/gogenerate"
-	"github.com/myitcv/immutable/util"
+	"myitcv.io/gogenerate"
+	"myitcv.io/immutable/util"
 )
 
 const (

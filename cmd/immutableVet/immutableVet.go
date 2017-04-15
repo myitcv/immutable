@@ -1,4 +1,4 @@
-package main
+package main // import "myitcv.io/immutable/cmd/immutableVet"
 
 import (
 	"bytes"
@@ -19,9 +19,9 @@ import (
 	"go/build"
 
 	"github.com/kisielk/gotool"
-	"github.com/myitcv/gogenerate"
-	"github.com/myitcv/immutable"
-	"github.com/myitcv/immutable/util"
+	"myitcv.io/gogenerate"
+	"myitcv.io/immutable"
+	"myitcv.io/immutable/util"
 )
 
 const (
@@ -88,7 +88,7 @@ func main() {
 }
 
 func loadImmIntf() {
-	ip := "github.com/myitcv/immutable"
+	ip := "myitcv.io/immutable"
 
 	bpkg, err := build.Import(ip, "", 0)
 	if err != nil {

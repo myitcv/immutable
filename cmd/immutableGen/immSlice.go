@@ -5,8 +5,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/myitcv/immutable"
-	"github.com/myitcv/immutable/util"
+	"myitcv.io/immutable"
+	"myitcv.io/immutable/util"
 )
 
 type immSlice struct {

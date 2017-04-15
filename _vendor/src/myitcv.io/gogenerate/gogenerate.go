@@ -5,7 +5,8 @@
 // for the authors of go generate generators. See https://github.com/myitcv/gogenerate/wiki/Go-Generate-Notes
 // for further notes on such generators. It also exposes some convenience functions that might be useful
 // to authors of generators
-package gogenerate
+//
+package gogenerate // import "myitcv.io/gogenerate"
 
 import (
 	"bufio"

@@ -1,6 +1,6 @@
 package coretest
 
-import "github.com/myitcv/immutable"
+import "myitcv.io/immutable"
 
 //go:generate immutableGen -licenseFile license.txt -G "echo \"hello world\""
 

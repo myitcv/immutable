@@ -19,8 +19,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/myitcv/gogenerate"
-	"github.com/myitcv/immutable/util"
+	"myitcv.io/gogenerate"
+	"myitcv.io/immutable/util"
 )
 
 const (
@@ -275,7 +275,7 @@ func (o *output) genImmTypes() {
 
 		o.pln("import (")
 
-		o.pln("\"github.com/myitcv/immutable\"")
+		o.pln("\"myitcv.io/immutable\"")
 		o.pln()
 
 		for i := range v.imports {

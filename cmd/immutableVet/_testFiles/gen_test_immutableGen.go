@@ -5,7 +5,7 @@ package _testFiles
 //immutableVet:skipFile
 
 import (
-	"github.com/myitcv/immutable"
+	"myitcv.io/immutable"
 )
 
 //

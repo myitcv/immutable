@@ -3,7 +3,7 @@ package coretest_test
 import (
 	"testing"
 
-	"github.com/myitcv/immutable/cmd/immutableGen/internal/coretest"
+	"myitcv.io/immutable/cmd/immutableGen/internal/coretest"
 )
 
 func TestMySliceZeroValue(t *testing.T) {

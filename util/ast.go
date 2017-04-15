@@ -1,4 +1,4 @@
-package util
+package util // import "myitcv.io/immutable/util"
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/myitcv/immutable"
+	"myitcv.io/immutable"
 )
 
 const (
@@ -98,7 +98,7 @@ func IsImmTypeAst(ts ast.Expr, imps []*ast.ImportSpec, pkg string) (ImmTypeAst, 
 	// The only way the provided expression can "be" an immutable type is when
 	// it is a Type reference (per the spec) and that type "implements" the
 	// immutable "interface"
-	// (https://github.com/myitcv/immutable/wiki/immutableGen)
+	// (https://myitcv.io/immutable/wiki/immutableGen)
 
 	isPointer := false
 	pkgStr := ""
@@ -524,7 +524,7 @@ func astString(node interface{}) string {
 
 func astImplsImm(typStr string, meths map[string]*ast.FuncDecl) ImmTypeAst {
 	// Need to check for the presence of the methods defined here:
-	// https://github.com/myitcv/immutable/wiki/immutableGen
+	// https://myitcv.io/immutable/wiki/immutableGen
 
 	// TODO use shared constants with immutableGen
 
