@@ -26,6 +26,14 @@ func {{Export "New"}}{{Capitalise .Name}}Cap(l int) *{{.Name}} {
 	}
 }
 
+func {{Export "New"}}{{Capitalise .Name}}Vals(vals map[{{.KeyType}}]{{.ValType}}) *{{.Name}} {
+	return {{Export "New"}}{{Capitalise .Name}}(func (res *{{.Name}}) {
+		for k, v := range vals {
+			res.Set(k, v)
+		}
+	})
+}
+
 func (m *{{.Name}})Mutable() bool {
 	return m.mutable
 }
