@@ -361,7 +361,7 @@ func (o *output) printImmPreamble(name string, node ast.Node) {
 
 		fmt.Fprintf(buf, "struct {\n")
 
-		if st.Fields != nil {
+		if st.Fields != nil && st.Fields.NumFields() > 0 {
 			line := o.fset.Position(st.Fields.List[0].Pos()).Line
 
 			for _, f := range st.Fields.List {
