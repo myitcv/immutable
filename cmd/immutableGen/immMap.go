@@ -17,6 +17,8 @@ type immMap struct {
 	typ    ast.Expr
 	keyTyp ast.Expr
 	valTyp ast.Expr
+
+	file *ast.File
 }
 
 func (o *output) genImmMaps(maps []immMap) {

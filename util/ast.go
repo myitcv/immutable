@@ -4,11 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"go/ast"
-	"go/build"
-	"go/parser"
 	"go/printer"
 	"go/token"
-	"os"
 	"path"
 	"strings"
 
@@ -77,9 +74,21 @@ func (i ImmTypeAstStruct) isImmTypeAst()    {}
 func (i ImmTypeAstMap) isImmTypeAst()       {}
 func (i ImmTypeAstSlice) isImmTypeAst()     {}
 
-var astTypeCache = make(map[string]ImmTypeAst)
-var pkgCache = make(map[string]*ast.Package)
-var fset = token.NewFileSet()
+type PkgLookup func(imp *ast.ImportSpec) (*ast.Package, error)
+
+type Checker struct {
+	astTypeCache map[string]ImmTypeAst
+	pkgLookup    PkgLookup
+	fset         *token.FileSet
+}
+
+func NewChecker(pkgLookup PkgLookup, fset *token.FileSet) Checker {
+	return Checker{
+		astTypeCache: make(map[string]ImmTypeAst),
+		pkgLookup:    pkgLookup,
+		fset:         fset,
+	}
+}
 
 // IsImmTypeAst determines by syntax tree analysis alone whether the supplied
 // ast.Expr represents an immutable type. In case a type is immutable, a value
@@ -89,12 +98,8 @@ var fset = token.NewFileSet()
 // like time.Time, ImmTypeAstSpecial is returned. For basic types,
 // ImmTypeAstBasic is returned.  If a type is a reference to an interface type
 // that extends immutable.Immutable then ImmTypeAstExtIntf is returned.  If a
-// type is not immutable then nil is returned. For now this is not thread
-// safe....
-func IsImmTypeAst(ts ast.Expr, imps []*ast.ImportSpec, pkg string) (ImmTypeAst, error) {
-
-	// TODO provide option to optionally pass in package cache?
-
+// type is not immutable then nil is returned.
+func (c Checker) IsImmTypeAst(ts ast.Expr, file *ast.File, pkg string) (ImmTypeAst, error) {
 	// The only way the provided expression can "be" an immutable type is when
 	// it is a Type reference (per the spec) and that type "implements" the
 	// immutable "interface"
@@ -112,6 +117,8 @@ func IsImmTypeAst(ts ast.Expr, imps []*ast.ImportSpec, pkg string) (ImmTypeAst, 
 		isPointer = true
 		ts = v.X
 	}
+
+	imps := file.Imports
 
 	switch ts := ts.(type) {
 	case *ast.Ident:
@@ -169,18 +176,18 @@ func IsImmTypeAst(ts ast.Expr, imps []*ast.ImportSpec, pkg string) (ImmTypeAst, 
 		return ImmTypeAstSpecial{}, nil
 	}
 
-	return isAstTypeImm(pkgStr, typStr, isPointer)
+	return c.isAstTypeImm(pkgStr, typStr, isPointer)
 }
 
-func isAstTypeImm(pkgStr, typStr string, isPointer bool) (ImmTypeAst, error) {
+func (c Checker) isAstTypeImm(pkgStr, typStr string, isPointer bool) (ImmTypeAst, error) {
 
 	key := buildKey(pkgStr, typStr, isPointer)
 
-	if v, ok := astTypeCache[key]; ok {
+	if v, ok := c.astTypeCache[key]; ok {
 		return v, nil
 	}
 
-	pkg, err := loadPkg(pkgStr)
+	pkg, err := c.pkgLookup(pkgStr)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +196,7 @@ func isAstTypeImm(pkgStr, typStr string, isPointer bool) (ImmTypeAst, error) {
 	// when false
 	var res ImmTypeAst
 	defer func() {
-		astTypeCache[key] = res
+		c.astTypeCache[key] = res
 	}()
 
 	var types []*ast.TypeSpec
@@ -243,7 +250,7 @@ func isAstTypeImm(pkgStr, typStr string, isPointer bool) (ImmTypeAst, error) {
 					switch t := ts.Type.(type) {
 					case *ast.InterfaceType:
 
-						ok, err := interfaceExtendsImmutable(pkgStr, t, f.Imports)
+						ok, err := c.interfaceExtendsImmutable(pkgStr, t, f.Imports)
 						if err != nil {
 							return nil, err
 						}
@@ -351,13 +358,13 @@ func isAstTypeImm(pkgStr, typStr string, isPointer bool) (ImmTypeAst, error) {
 		fullTypStr = "*" + fullTypStr
 	}
 
-	res = astImplsImm(fullTypStr, meths)
+	res = c.astImplsImm(fullTypStr, meths)
 
 	return res, nil
 }
 
-func lookupIntf(pkgStr, intf string) (*ast.InterfaceType, []*ast.ImportSpec, error) {
-	pkg, err := loadPkg(pkgStr)
+func (c Checker) lookupIntf(pkgStr, intf string) (*ast.InterfaceType, []*ast.ImportSpec, error) {
+	pkg, err := c.pkgLookup(pkgStr)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -387,7 +394,7 @@ func lookupIntf(pkgStr, intf string) (*ast.InterfaceType, []*ast.ImportSpec, err
 	return nil, nil, nil
 }
 
-func interfaceExtendsImmutable(pkgStr string, intf *ast.InterfaceType, imps []*ast.ImportSpec) (bool, error) {
+func (c Checker) interfaceExtendsImmutable(pkgStr string, intf *ast.InterfaceType, imps []*ast.ImportSpec) (bool, error) {
 
 	for _, f := range intf.Methods.List {
 		if len(f.Names) != 0 {
@@ -398,12 +405,12 @@ func interfaceExtendsImmutable(pkgStr string, intf *ast.InterfaceType, imps []*a
 		// embedded
 		switch v := f.Type.(type) {
 		case *ast.Ident:
-			ni, _, err := lookupIntf(pkgStr, v.Name)
+			ni, _, err := c.lookupIntf(pkgStr, v.Name)
 			if err != nil {
 				return false, err
 			}
 
-			ok, err := interfaceExtendsImmutable(pkgStr, ni, imps)
+			ok, err := c.interfaceExtendsImmutable(pkgStr, ni, imps)
 			if err != nil {
 				return false, err
 			}
@@ -424,7 +431,7 @@ func interfaceExtendsImmutable(pkgStr string, intf *ast.InterfaceType, imps []*a
 				}
 
 				if pn == toCheck {
-					ni, nimps, err := lookupIntf(p, v.Sel.Name)
+					ni, nimps, err := c.lookupIntf(p, v.Sel.Name)
 					if err != nil {
 						return false, err
 					}
@@ -434,7 +441,7 @@ func interfaceExtendsImmutable(pkgStr string, intf *ast.InterfaceType, imps []*a
 							return true, nil
 						}
 
-						ok, err := interfaceExtendsImmutable(p, ni, nimps)
+						ok, err := c.interfaceExtendsImmutable(p, ni, nimps)
 						if err != nil {
 							return false, err
 						}
@@ -455,45 +462,6 @@ func interfaceExtendsImmutable(pkgStr string, intf *ast.InterfaceType, imps []*a
 	return false, nil
 }
 
-func loadPkg(pkgStr string) (*ast.Package, error) {
-	pkg, ok := pkgCache[pkgStr]
-	if !ok {
-		p, err := loadPkgImpl(pkgStr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load package %v: %v", pkgStr, err)
-		}
-
-		pkg = p
-		pkgCache[pkgStr] = p
-	}
-
-	return pkg, nil
-}
-
-func loadPkgImpl(pkgStr string) (*ast.Package, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("could not get working directory: %v", err)
-	}
-
-	bpkg, err := build.Import(pkgStr, wd, 0)
-	if err != nil {
-		return nil, fmt.Errorf("could not resolve %v: %v", pkgStr, err)
-	}
-
-	pkgs, err := parser.ParseDir(fset, bpkg.Dir, nil, 0)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse %v in %v: %v", pkgStr, bpkg.Dir, err)
-	}
-
-	p, ok := pkgs[bpkg.Name]
-	if !ok {
-		return nil, fmt.Errorf("failed to find package %v (%v) in %v", bpkg.Name, pkgStr, bpkg.Dir)
-	}
-
-	return p, nil
-}
-
 func buildKey(pkgStr, typStr string, isPointer bool) string {
 
 	key := typStr
@@ -509,10 +477,10 @@ func buildKey(pkgStr, typStr string, isPointer bool) string {
 	return key
 }
 
-func astString(node interface{}) string {
+func (c Checker) astString(node interface{}) string {
 	b := bytes.NewBuffer(nil)
 
-	err := printer.Fprint(b, fset, node)
+	err := printer.Fprint(b, c.fset, node)
 	if err != nil {
 		panic(fmt.Errorf("failed to print node %v: %v", node, err))
 	}
@@ -520,7 +488,7 @@ func astString(node interface{}) string {
 	return b.String()
 }
 
-func astImplsImm(typStr string, meths map[string]*ast.FuncDecl) ImmTypeAst {
+func (c Checker) astImplsImm(typStr string, meths map[string]*ast.FuncDecl) ImmTypeAst {
 	// Need to check for the presence of the methods defined here:
 	// https://myitcv.io/immutable/wiki/immutableGen
 
@@ -558,7 +526,7 @@ func astImplsImm(typStr string, meths map[string]*ast.FuncDecl) ImmTypeAst {
 			return nil
 		}
 
-		f := astString(sig.Results.List[0].Type)
+		f := c.astString(sig.Results.List[0].Type)
 		if f != typStr {
 			return nil
 		}
@@ -576,12 +544,12 @@ func astImplsImm(typStr string, meths map[string]*ast.FuncDecl) ImmTypeAst {
 			return nil
 		}
 
-		p := astString(sig.Params.List[0].Type)
+		p := c.astString(sig.Params.List[0].Type)
 		if p != typStr {
 			return nil
 		}
 
-		f := astString(sig.Results.List[0].Type)
+		f := c.astString(sig.Results.List[0].Type)
 		if f != typStr {
 			return nil
 		}
@@ -604,12 +572,12 @@ func astImplsImm(typStr string, meths map[string]*ast.FuncDecl) ImmTypeAst {
 			return nil
 		}
 
-		p := astString(pf.Params.List[0].Type)
+		p := c.astString(pf.Params.List[0].Type)
 		if p != typStr {
 			return nil
 		}
 
-		f := astString(sig.Results.List[0].Type)
+		f := c.astString(sig.Results.List[0].Type)
 		if f != typStr {
 			return nil
 		}
@@ -632,12 +600,12 @@ func astImplsImm(typStr string, meths map[string]*ast.FuncDecl) ImmTypeAst {
 			return nil
 		}
 
-		p := astString(pf.Params.List[0].Type)
+		p := c.astString(pf.Params.List[0].Type)
 		if p != typStr {
 			return nil
 		}
 
-		f := astString(sig.Results.List[0].Type)
+		f := c.astString(sig.Results.List[0].Type)
 		if f != typStr {
 			return nil
 		}

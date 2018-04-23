@@ -63,6 +63,7 @@ func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
 	out := &output{
 		dir:       dir,
 		fset:      fset,
+		checker:   util.NewChecker(fset),
 		pkg:       envPkg,
 		license:   licenseHeader,
 		goGenCmds: cmds,
@@ -122,6 +123,8 @@ type output struct {
 	// be generating in this package
 	immTypes map[string]util.ImmTypeAst
 
+	checker util.Checker
+
 	files map[*ast.File]*fileTmpls
 	cms   map[*ast.File]ast.CommentMap
 }
@@ -132,11 +135,16 @@ type fileTmpls struct {
 	maps    []immMap
 	slices  []immSlice
 	structs []immStruct
+
+	pointMeths    map[string]string
+	nonPointMeths map[string]string
 }
 
 func gatherImmTypes(pkg string, fset *token.FileSet, file *ast.File) *fileTmpls {
 	g := &fileTmpls{
-		imports: make(map[*ast.ImportSpec]struct{}),
+		imports:       make(map[*ast.ImportSpec]struct{}),
+		pointMeths:    make(map[string]string),
+		nonPointMeths: make(map[string]string),
 	}
 
 	impf := &importFinder{
@@ -152,8 +160,41 @@ func gatherImmTypes(pkg string, fset *token.FileSet, file *ast.File) *fileTmpls 
 
 	for _, d := range file.Decls {
 
-		gd, ok := d.(*ast.GenDecl)
-		if !ok || gd.Tok != token.TYPE {
+		var gd *ast.GenDecl
+
+		switch d := d.(type) {
+		case *ast.GenDecl:
+			gd = d
+			if gd.Tok != token.TYPE {
+				continue
+			}
+		case *ast.FuncDecl:
+			{
+				if d.Recv == nil {
+					goto EndMeth
+				}
+
+				fl := d.Recv.List
+				if len(fl) != 1 {
+					goto EndMeth
+				}
+
+				f := fl[0]
+
+				m := d.Name.Name
+
+				switch t := f.Type.(type) {
+				case *ast.StarExpr:
+					n := exprString(fset, t.X)
+					g.pointMeths[n] = m
+				default:
+					n := exprString(fset, t)
+					g.pointMeths[n] = m
+				}
+			}
+		EndMeth:
+			continue
+		default:
 			continue
 		}
 
@@ -205,6 +246,16 @@ func gatherImmTypes(pkg string, fset *token.FileSet, file *ast.File) *fileTmpls 
 				})
 
 				ast.Walk(impf, ts.Type)
+
+				// for any embedded fields we want to walk
+				// their types too
+				if typ.Fields != nil {
+					for _, f := range typ.Fields.List {
+						if len(f.Names) == 0 {
+							ast.Walk(impf, f.Type)
+						}
+					}
+				}
 			}
 		}
 	}
@@ -332,9 +383,13 @@ func (o *output) genImmTypes() {
 }
 
 func (o *output) exprString(e ast.Expr) string {
+	return exprString(o.fset, e)
+}
+
+func exprString(fset *token.FileSet, e ast.Expr) string {
 	var buf bytes.Buffer
 
-	err := printer.Fprint(&buf, o.fset, e)
+	err := printer.Fprint(&buf, fset, e)
 	if err != nil {
 		panic(err)
 	}
