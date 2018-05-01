@@ -3,6 +3,7 @@ package main
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 	"strings"
 
 	"myitcv.io/immutable"
@@ -18,14 +19,17 @@ type commonImm struct {
 
 	// the declaring file
 	file *ast.File
+
+	// the template declaration
+	dec *ast.GenDecl
 }
 
 type immStruct struct {
 	commonImm
 
 	name string
-	dec  *ast.GenDecl
-	st   *ast.StructType
+	syn  *ast.StructType
+	typ  *types.Struct
 
 	special bool
 }
@@ -35,72 +39,57 @@ func (o *output) genImmStructs(structs []immStruct) {
 		Name  string
 		Type  string
 		f     *ast.Field
-		IsImm util.ImmTypeAst
+		IsImm util.ImmType
 	}
 
 	for _, s := range structs {
 
 		o.printCommentGroup(s.dec.Doc)
-		o.printImmPreamble(s.name, s.st)
+		o.printImmPreamble(s.name, s.syn)
 
 		// start of struct
 		o.pfln("type %v struct {", s.name)
 
-		o.printLeadSpecCommsFor(s.st)
+		o.printLeadSpecCommsFor(s.syn)
 
 		o.pln("")
 
 		var fields []genField
 
-		for _, f := range s.st.Fields.List {
-			names := ""
-			sep := ""
+		var astFields []*ast.Field
 
-			var isImm util.ImmTypeAst
-			typ := o.exprString(f.Type)
-
-			isImm = o.immTypes[strings.TrimPrefix(typ, "*")]
-
-			if isImm == nil {
-				i, err := util.IsImmTypeAst(f.Type, s.file.Imports, s.pkg)
-				if err != nil {
-					panic(err)
-				}
-				isImm = i
-			}
-
-			tag := ""
-
-			if f.Tag != nil {
-				tag = f.Tag.Value
-			}
-
+		for _, f := range s.syn.Fields.List {
 			if len(f.Names) == 0 {
-				n := strings.TrimPrefix(typ, "*")
-				ps := strings.Split(n, ".")
-				n = ps[len(ps)-1]
-				names = fieldHidingPrefix + n
-
-				fields = append(fields, genField{
-					Name:  n,
-					Type:  typ,
-					f:     f,
-					IsImm: isImm,
-				})
+				astFields = append(astFields, f)
 			} else {
-				for _, n := range f.Names {
-					names = names + sep + fieldHidingPrefix + n.Name
-					sep = ", "
-
-					fields = append(fields, genField{
-						Name:  n.Name,
-						Type:  typ,
-						f:     f,
-						IsImm: isImm,
-					})
+				for range f.Names {
+					astFields = append(astFields, f)
 				}
 			}
-			o.pfln("%v %v %v", names, typ, tag)
+		}
+
+		for i := 0; i < s.typ.NumFields(); i++ {
+			f := s.typ.Field(i)
+			astf := astFields[i]
+
+			name := fieldHidingPrefix + f.Name()
+
+			tag := s.typ.Tag(i)
+			if tag != "" {
+				tag = "`" + tag + "`"
+			}
+			typ := o.exprString(astf.Type)
+
+			isImm := o.isImm(f.Type(), typ)
+
+			fields = append(fields, genField{
+				Name:  f.Name(),
+				Type:  typ,
+				f:     astf,
+				IsImm: isImm,
+			})
+
+			o.pfln("%v %v %v", name, typ, tag)
 		}
 
 		o.pln("")
@@ -193,8 +182,11 @@ func (o *output) genImmStructs(structs []immStruct) {
 		`, exp, s.name)
 
 		for _, f := range fields {
+			if f.IsImm == nil {
+				continue
+			}
 			switch f.IsImm.(type) {
-			case util.ImmTypeAstSlice, util.ImmTypeAstStruct, util.ImmTypeAstMap, util.ImmTypeAstImplsIntf:
+			case util.ImmTypeSlice, util.ImmTypeStruct, util.ImmTypeMap, util.ImmTypeImplsIntf, util.ImmTypeSimple:
 
 				tmpl := struct {
 					TypeName string
@@ -213,28 +205,7 @@ func (o *output) genImmStructs(structs []immStruct) {
 					}
 				}
 				`, exp, tmpl)
-			case util.ImmTypeAstExtIntf:
-
-				tmpl := struct {
-					TypeName string
-					Field    genField
-				}{
-					TypeName: s.name,
-					Field:    f,
-				}
-
-				o.pt(`
-				{
-					v := s.`+fieldHidingPrefix+`{{.Field.Name}}
-
-					switch v := v.(type) {
-					case immutable.Immutable:
-						if !v.IsDeeplyNonMutable(seen) {
-							return false
-						}
-					}
-				}
-				`, exp, tmpl)
+			case util.ImmTypeBasic:
 			}
 		}
 

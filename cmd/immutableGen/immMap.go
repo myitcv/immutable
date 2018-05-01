@@ -2,7 +2,7 @@ package main
 
 import (
 	"go/ast"
-	"strings"
+	"go/types"
 	"text/template"
 
 	"myitcv.io/immutable"
@@ -12,11 +12,9 @@ import (
 type immMap struct {
 	commonImm
 
-	name   string
-	dec    *ast.GenDecl
-	typ    ast.Expr
-	keyTyp ast.Expr
-	valTyp ast.Expr
+	name string
+	syn  *ast.MapType
+	typ  *types.Map
 }
 
 func (o *output) genImmMaps(maps []immMap) {
@@ -29,14 +27,14 @@ func (o *output) genImmMaps(maps []immMap) {
 		}{
 			Name:    m.name,
 			VarName: genVarName(m.name),
-			KeyType: o.exprString(m.keyTyp),
-			ValType: o.exprString(m.valTyp),
+			KeyType: o.exprString(m.syn.Key),
+			ValType: o.exprString(m.syn.Value),
 		}
 
 		exp := exporter(m.name)
 
 		o.printCommentGroup(m.dec.Doc)
-		o.printImmPreamble(m.name, m.typ)
+		o.printImmPreamble(m.name, m.syn)
 
 		// start of struct
 		o.pfln("type %v struct {", m.name)
@@ -72,39 +70,21 @@ func (o *output) genImmMaps(maps []immMap) {
 			}
 		`, exp, m.name)
 
-		ktyp := o.exprString(m.keyTyp)
-		vtyp := o.exprString(m.valTyp)
-
-		keyIsImm := o.immTypes[strings.TrimPrefix(ktyp, "*")]
-		valIsImm := o.immTypes[strings.TrimPrefix(vtyp, "*")]
-
-		if keyIsImm == nil {
-			i, err := util.IsImmTypeAst(m.keyTyp, m.file.Imports, m.pkg)
-			if err != nil {
-				fatalf("failed to check IsImmTypeAst: %v", err)
-			}
-			keyIsImm = i
-		}
-
-		if valIsImm == nil {
-			i, err := util.IsImmTypeAst(m.valTyp, m.file.Imports, m.pkg)
-			if err != nil {
-				fatalf("failed to check IsImmTypeAst: %v", err)
-			}
-			valIsImm = i
-		}
+		// we don't vet here; we just do what we are told
+		// immutableVet will catch bad stuff later
+		keyIsImm := o.isImm(m.typ.Key(), o.exprString(m.syn.Key))
+		valIsImm := o.isImm(m.typ.Elem(), o.exprString(m.syn.Value))
 
 		keyIsImmOk := false
+		valIsImmOk := false
+
 		switch keyIsImm.(type) {
-		case util.ImmTypeAstSlice, util.ImmTypeAstStruct, util.ImmTypeAstMap,
-			util.ImmTypeAstImplsIntf, util.ImmTypeAstExtIntf:
+		case util.ImmTypeStruct, util.ImmTypeSlice, util.ImmTypeMap, util.ImmTypeImplsIntf:
 			keyIsImmOk = true
 		}
 
-		valIsImmOk := false
 		switch valIsImm.(type) {
-		case util.ImmTypeAstSlice, util.ImmTypeAstStruct, util.ImmTypeAstMap,
-			util.ImmTypeAstImplsIntf, util.ImmTypeAstExtIntf:
+		case util.ImmTypeStruct, util.ImmTypeSlice, util.ImmTypeMap, util.ImmTypeImplsIntf:
 			valIsImmOk = true
 		}
 
@@ -142,7 +122,7 @@ func (o *output) genImmMaps(maps []immMap) {
 			}
 
 			if keyIsImmOk {
-				if _, ok := keyIsImm.(util.ImmTypeAstExtIntf); ok {
+				if _, ok := keyIsImm.(util.ImmTypeImplsIntf); ok {
 					o.pt(`
 					switch k.(type) {
 					case immutable.Immutable:
@@ -161,7 +141,7 @@ func (o *output) genImmMaps(maps []immMap) {
 			}
 
 			if valIsImmOk {
-				if _, ok := valIsImm.(util.ImmTypeAstExtIntf); ok {
+				if _, ok := valIsImm.(util.ImmTypeImplsIntf); ok {
 					o.pt(`
 					switch v.(type) {
 					case immutable.Immutable:

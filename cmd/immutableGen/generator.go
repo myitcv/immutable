@@ -12,14 +12,16 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"go/types"
 	"log"
-	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 
 	"myitcv.io/gogenerate"
+	"myitcv.io/hybridimporter"
 	"myitcv.io/immutable/util"
 )
 
@@ -41,11 +43,7 @@ func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
 
 	fset := token.NewFileSet()
 
-	notGenByUs := func(fi os.FileInfo) bool {
-		return !gogenerate.FileGeneratedBy(fi.Name(), immutableGenCmd)
-	}
-
-	pkgs, err := parser.ParseDir(fset, dir, notGenByUs, parser.AllErrors|parser.ParseComments)
+	pkgs, err := parser.ParseDir(fset, dir, nil, parser.AllErrors|parser.ParseComments)
 	if err != nil {
 		fatalf("could not parse dir %v: %v", dir, err)
 	}
@@ -60,59 +58,77 @@ func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
 		fatalf("expected to have parsed %v, instead parsed %v", envPkg, pps)
 	}
 
+	var files []*ast.File
+	var fns []string
+	for fn, f := range pkg.Files {
+		files = append(files, f)
+		fns = append(fns, fn)
+	}
+
+	sort.Strings(fns)
+
+	imp, err := hybridimporter.New(&build.Default, fset, bpkg.ImportPath, ".")
+	if err != nil {
+		fatalf("failed to create importer for %v: %v", bpkg.ImportPath, err)
+	}
+
+	info := &types.Info{
+		Defs:  make(map[*ast.Ident]types.Object),
+		Uses:  make(map[*ast.Ident]types.Object),
+		Types: make(map[ast.Expr]types.TypeAndValue),
+	}
+
+	conf := types.Config{
+		Importer: imp,
+		Error:    func(err error) {},
+	}
+
+	_, err = conf.Check(bpkg.ImportPath, fset, files, info)
+	if err != nil {
+		if _, ok := err.(types.Error); !ok {
+			fatalf("failed to type check %v: %v", bpkg.ImportPath, err)
+		}
+	}
+
 	out := &output{
 		dir:       dir,
+		info:      info,
 		fset:      fset,
-		pkg:       envPkg,
+		pkgName:   envPkg,
+		pkgPath:   bpkg.ImportPath,
 		license:   licenseHeader,
 		goGenCmds: cmds,
 		files:     make(map[*ast.File]*fileTmpls),
 		cms:       make(map[*ast.File]ast.CommentMap),
+		immTypes:  make(map[string]util.ImmType),
 	}
 
-	allTypes := make(map[string]util.ImmTypeAst)
+	for _, fn := range fns {
 
-	for fn, f := range pkg.Files {
 		// skip files that we generated
 		if gogenerate.FileGeneratedBy(fn, immutableGenCmd) {
 			continue
 		}
 
-		cm := ast.NewCommentMap(fset, f, f.Comments)
-		og := gatherImmTypes(bpkg.ImportPath, fset, f)
-		out.files[f] = og
+		f := pkg.Files[fn]
+		out.curFile = f
 
-		for _, m := range og.maps {
-			allTypes[m.name] = util.ImmTypeAstMap{
-				Key:  m.keyTyp,
-				Elem: m.valTyp,
-			}
-		}
+		out.cms[f] = ast.NewCommentMap(fset, f, f.Comments)
+		out.gatherImmTypes()
 
-		for _, s := range og.slices {
-			allTypes[s.name] = util.ImmTypeAstSlice{
-				Elem: s.valTyp,
-			}
-		}
-
-		for _, s := range og.structs {
-			allTypes[s.name] = util.ImmTypeAstStruct{}
-		}
-
-		out.cms[f] = cm
 	}
-
-	out.immTypes = allTypes
 
 	out.genImmTypes()
 }
 
 type output struct {
 	dir       string
-	pkg       string
+	pkgName   string
+	pkgPath   string
 	fset      *token.FileSet
 	license   string
 	goGenCmds gogenCmds
+	info      *types.Info
 
 	output *bytes.Buffer
 
@@ -120,7 +136,7 @@ type output struct {
 
 	// a convenience map of all the imm types we will
 	// be generating in this package
-	immTypes map[string]util.ImmTypeAst
+	immTypes map[string]util.ImmType
 
 	files map[*ast.File]*fileTmpls
 	cms   map[*ast.File]ast.CommentMap
@@ -134,7 +150,31 @@ type fileTmpls struct {
 	structs []immStruct
 }
 
-func gatherImmTypes(pkg string, fset *token.FileSet, file *ast.File) *fileTmpls {
+func (o *output) isImm(t types.Type, exp string) util.ImmType {
+	ct := t
+	switch v := ct.(type) {
+	case *types.Pointer:
+		ct = v.Elem()
+	case *types.Named:
+		ct = v.Underlying()
+	}
+
+	// we might have an invalid type because it refers to a yet-to-be-generated
+	// immutable type in this package. If that is the case we fall back to a
+	// comparison of the string representation of the type (which will be a
+	// pointer).
+	if tb, ok := ct.(*types.Basic); ok && tb.Kind() == types.Invalid {
+		return o.immTypes[exp]
+	}
+
+	return util.IsImmType(t)
+}
+
+func (o *output) gatherImmTypes() {
+	file := o.curFile
+	fset := o.fset
+	pkgPath := o.pkgPath
+
 	g := &fileTmpls{
 		imports: make(map[*ast.ImportSpec]struct{}),
 	}
@@ -142,12 +182,6 @@ func gatherImmTypes(pkg string, fset *token.FileSet, file *ast.File) *fileTmpls 
 	impf := &importFinder{
 		imports: file.Imports,
 		matches: g.imports,
-	}
-
-	comm := commonImm{
-		fset: fset,
-		file: file,
-		pkg:  pkg,
 	}
 
 	for _, d := range file.Decls {
@@ -160,59 +194,67 @@ func gatherImmTypes(pkg string, fset *token.FileSet, file *ast.File) *fileTmpls 
 		for _, s := range gd.Specs {
 			ts := s.(*ast.TypeSpec)
 
-			name, ok := util.IsImmTmplAst(ts)
+			name, ok := util.IsImmTmpl(ts)
 			if !ok {
 				continue
 			}
 
-			infof("found immutable declaration at %v", fset.Position(gd.Pos()))
+			typ := o.info.Defs[ts.Name].Type().(*types.Named)
 
-			switch typ := ts.Type.(type) {
-			case *ast.MapType:
+			infof("found immutable declaration at %v: %v", fset.Position(gd.Pos()), typ)
+
+			comm := commonImm{
+				fset: fset,
+				file: file,
+				pkg:  pkgPath,
+				dec:  gd,
+			}
+
+			switch u := typ.Underlying().(type) {
+			case *types.Map:
 				g.maps = append(g.maps, immMap{
 					commonImm: comm,
 					name:      name,
-					dec:       gd,
-					typ:       typ,
-					keyTyp:    typ.Key,
-					valTyp:    typ.Value,
+					typ:       u,
+					syn:       ts.Type.(*ast.MapType),
 				})
+				o.immTypes["*"+name] = util.ImmTypeMap{}
 
 				ast.Walk(impf, ts.Type)
 
-			case *ast.ArrayType:
+			case *types.Slice:
 				// TODO support for arrays
 
-				if typ.Len == nil {
-					g.slices = append(g.slices, immSlice{
-						commonImm: comm,
-						name:      name,
-						dec:       gd,
-						typ:       typ,
-						valTyp:    typ.Elt,
-					})
-				}
+				g.slices = append(g.slices, immSlice{
+					commonImm: comm,
+					name:      name,
+					typ:       u,
+					syn:       ts.Type.(*ast.ArrayType),
+				})
+				o.immTypes["*"+name] = util.ImmTypeSlice{}
 
 				ast.Walk(impf, ts.Type)
 
-			case *ast.StructType:
+			case *types.Struct:
 				g.structs = append(g.structs, immStruct{
 					commonImm: comm,
 					name:      name,
-					dec:       gd,
-					st:        typ,
-					special:   isSpecialStruct(name, typ),
+					typ:       u,
+					syn:       ts.Type.(*ast.StructType),
+					special:   isSpecialStruct(name, u),
 				})
+				o.immTypes["*"+name] = util.ImmTypeStruct{}
 
 				ast.Walk(impf, ts.Type)
 			}
+
 		}
 	}
 
-	return g
+	o.files[o.curFile] = g
 }
 
-func isSpecialStruct(name string, st *ast.StructType) bool {
+func isSpecialStruct(name string, st *types.Struct) bool {
 	// work out whether this is a special struct with a Key field
 	// pattern is:
 	//
@@ -224,25 +266,38 @@ func isSpecialStruct(name string, st *ast.StructType) bool {
 	// 3. the underlying type of {{.StructName}}Uuid is uint64 (we might be able to relax these two
 	// two underlying type restrictions)
 
-	if st.Fields == nil {
+	if st.NumFields() == 0 {
 		return false
 	}
 
-	for _, f := range st.Fields.List {
-		idt, ok := f.Type.(*ast.Ident)
+	for i := 0; i < st.NumFields(); i++ {
+		f := st.Field(i)
+
+		if f.Name() != "Key" {
+			continue
+		}
+
+		kst, ok := f.Type().Underlying().(*types.Struct)
 		if !ok {
 			continue
 		}
 
-		if idt.Name != name+"Key" {
+		if kst.NumFields() != 2 {
 			continue
 		}
 
-		for _, fn := range f.Names {
-			if fn.Name == "Key" {
-				return true
-			}
+		uuid := kst.Field(0)
+		if uuid.Name() != "Uuid" {
+			continue
 		}
+
+		ver := kst.Field(1)
+		if ver.Name() != "Version" {
+			continue
+		}
+
+		// we found it
+		return true
 	}
 
 	return false
@@ -263,7 +318,7 @@ func (o *output) genImmTypes() {
 
 		o.pf(o.license)
 
-		o.pf("package %v\n", o.pkg)
+		o.pf("package %v\n", o.pkgName)
 
 		// is there a "standard" place for //go:generate comments?
 		for _, v := range o.goGenCmds {

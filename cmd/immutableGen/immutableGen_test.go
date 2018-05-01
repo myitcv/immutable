@@ -71,7 +71,7 @@ func TestBasic(t *testing.T) {
 		for _, s := range gd.Specs {
 			ts := s.(*ast.TypeSpec)
 
-			name, ok := util.IsImmTmplAst(ts)
+			name, ok := util.IsImmTmpl(ts)
 
 			if !ok {
 				continue

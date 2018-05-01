@@ -1,0 +1,12 @@
+language: go
+
+go:
+  - master # we depend on tip for now
+
+go_import_path: myitcv.io/hybridimporter
+
+install: true
+
+script:
+  - ./_scripts/run_tests.sh
+  - ./_scripts/check_git_is_clean.sh

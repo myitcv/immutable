@@ -677,7 +677,8 @@ func (s *AS) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 //
 type MyStruct struct {
 	_Key             MyStructKey
-	_Name, _surname  string `tag:"value"`
+	_Name            string `tag:"value"`
+	_surname         string `tag:"value"`
 	_age             int    `tag:"age"`
 	_string          string
 	_fieldWithoutTag bool
@@ -959,11 +960,8 @@ func (s *A) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 	{
 		v := s._Blah
 
-		switch v := v.(type) {
-		case immutable.Immutable:
-			if !v.IsDeeplyNonMutable(seen) {
-				return false
-			}
+		if v != nil && !v.IsDeeplyNonMutable(seen) {
+			return false
 		}
 	}
 	return true
@@ -1095,11 +1093,8 @@ func (s *BlahUse) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 	{
 		v := s._Blah
 
-		switch v := v.(type) {
-		case immutable.Immutable:
-			if !v.IsDeeplyNonMutable(seen) {
-				return false
-			}
+		if v != nil && !v.IsDeeplyNonMutable(seen) {
+			return false
 		}
 	}
 	return true
