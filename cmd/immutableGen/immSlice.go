@@ -2,7 +2,7 @@ package main
 
 import (
 	"go/ast"
-	"strings"
+	"go/types"
 	"text/template"
 
 	"myitcv.io/immutable"
@@ -12,10 +12,9 @@ import (
 type immSlice struct {
 	commonImm
 
-	name   string
-	typ    ast.Expr
-	valTyp ast.Expr
-	dec    *ast.GenDecl
+	name string
+	syn  *ast.ArrayType
+	typ  *types.Slice
 }
 
 func (o *output) genImmSlices(slices []immSlice) {
@@ -26,13 +25,13 @@ func (o *output) genImmSlices(slices []immSlice) {
 			Type string
 		}{
 			Name: s.name,
-			Type: o.exprString(s.valTyp),
+			Type: o.exprString(s.syn.Elt),
 		}
 
 		exp := exporter(s.name)
 
 		o.printCommentGroup(s.dec.Doc)
-		o.printImmPreamble(s.name, s.typ)
+		o.printImmPreamble(s.name, s.syn)
 
 		// start of struct
 		o.pfln("type %v struct {", s.name)
@@ -68,20 +67,16 @@ func (o *output) genImmSlices(slices []immSlice) {
 			}
 		`, exp, s.name)
 
-		vtyp := o.exprString(s.valTyp)
+		valIsImm := o.isImm(s.typ.Elem(), o.exprString(s.syn.Elt))
 
-		valIsImm := o.immTypes[strings.TrimPrefix(vtyp, "*")]
-
-		if valIsImm == nil {
-			i, err := util.IsImmTypeAst(s.valTyp, s.file.Imports, s.pkg)
-			if err != nil {
-				fatalf("failed to check IsImmTypeAst: %v", err)
-			}
-			valIsImm = i
-		}
+		valIsImmOk := false
 
 		switch valIsImm.(type) {
-		case util.ImmTypeAstSlice, util.ImmTypeAstStruct, util.ImmTypeAstMap, util.ImmTypeAstImplsIntf:
+		case util.ImmTypeStruct, util.ImmTypeSlice, util.ImmTypeMap, util.ImmTypeImplsIntf:
+			valIsImmOk = true
+		}
+
+		if valIsImmOk {
 			o.pt(`
 			if s.Len() == 0 {
 				return true
@@ -100,7 +95,7 @@ func (o *output) genImmSlices(slices []immSlice) {
 			for _, v := range s.theSlice {
 			`, exp, s.name)
 
-			if _, ok := valIsImm.(util.ImmTypeAstExtIntf); ok {
+			if _, ok := valIsImm.(util.ImmTypeImplsIntf); ok {
 				o.pt(`
 					switch v := v.(type) {
 					case immutable.Immutable:

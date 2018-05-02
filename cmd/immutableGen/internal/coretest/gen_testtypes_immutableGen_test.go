@@ -330,7 +330,8 @@ func (s *MyTestSlice) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 type MyTestStruct struct {
 	//somethingspecial
 
-	_Name, _surname  string `tag:"value"`
+	_Name            string `tag:"value"`
+	_surname         string `tag:"value"`
 	_age             int    `tag:"age"`
 	_fieldWithoutTag bool
 
