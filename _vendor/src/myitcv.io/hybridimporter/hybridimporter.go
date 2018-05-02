@@ -19,6 +19,7 @@ type pkgInfo struct {
 	ImportPath string
 	Target     string
 	Stale      bool
+	Name       string
 }
 
 func New(ctxt *build.Context, fset *token.FileSet, path, dir string) (*srcimporter.Importer, error) {
@@ -43,7 +44,7 @@ func New(ctxt *build.Context, fset *token.FileSet, path, dir string) (*srcimport
 			}
 			return nil, fmt.Errorf("failed to parse list for %v in %v: %v", path, dir, err)
 		}
-		if p.ImportPath == "unsafe" || p.Stale {
+		if p.ImportPath == "unsafe" || p.Stale || p.Name == "main" {
 			continue
 		}
 		fi, err := os.Open(p.Target)
