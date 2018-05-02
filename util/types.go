@@ -24,12 +24,17 @@ type (
 	// ImmTypeMap is used to indicate a type that is immutable by virtue of
 	// being a pointer to a struct type that was itself generated from an _Imm_
 	// map template.
-	ImmTypeMap struct{}
+	ImmTypeMap struct {
+		Key  types.Type
+		Elem types.Type
+	}
 
 	// ImmTypeMap is used to indicate a type that is immutable by virtue of
 	// being a pointer to a struct type that was itself generated from an _Imm_
 	// slice template.
-	ImmTypeSlice struct{}
+	ImmTypeSlice struct {
+		Elem types.Type
+	}
 
 	// ImmTypeImplsIntf is used to indicate a type that is not an ImmTypeStruct,
 	// ImmTypeMap or ImmTypeSlice, but still satisfies the immutable "interface".
@@ -265,9 +270,16 @@ func (i *immCache) lookup(tt types.Type) (v ImmType) {
 		case "__tmpl":
 			hasTmpl = true
 		case "theMap":
-			v = ImmTypeMap{}
+			m := f.Type().(*types.Map)
+			v = ImmTypeMap{
+				Key:  m.Key(),
+				Elem: m.Elem(),
+			}
 		case "theSlice":
-			v = ImmTypeSlice{}
+			s := f.Type().(*types.Slice)
+			v = ImmTypeSlice{
+				Elem: s.Elem(),
+			}
 		}
 	}
 
