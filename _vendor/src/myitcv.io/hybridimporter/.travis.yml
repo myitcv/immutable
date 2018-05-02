@@ -1,11 +1,16 @@
 language: go
 
 go:
-  - master # we depend on tip for now
+  - 1.x
 
 go_import_path: myitcv.io/hybridimporter
 
 install: true
+
+before_script:
+  - ./_scripts/installGo.sh
+  - export PATH=$HOME/gotip/bin:$PATH
+  - go version
 
 script:
   - ./_scripts/run_tests.sh
