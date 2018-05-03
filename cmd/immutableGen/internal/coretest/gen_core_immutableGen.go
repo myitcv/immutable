@@ -20,7 +20,7 @@ import (
 type MyMap struct {
 	theMap  map[string]int
 	mutable bool
-	__tmpl  _Imm_MyMap
+	__tmpl  *_Imm_MyMap
 }
 
 var _ immutable.Immutable = new(MyMap)
@@ -175,7 +175,7 @@ func (s *MyMap) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 type AM struct {
 	theMap  map[*A]*A
 	mutable bool
-	__tmpl  _Imm_AM
+	__tmpl  *_Imm_AM
 }
 
 var _ immutable.Immutable = new(AM)
@@ -353,7 +353,7 @@ func (s *AM) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 type MySlice struct {
 	theSlice []string
 	mutable  bool
-	__tmpl   _Imm_MySlice
+	__tmpl   *_Imm_MySlice
 }
 
 var _ immutable.Immutable = new(MySlice)
@@ -501,7 +501,7 @@ func (s *MySlice) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 type AS struct {
 	theSlice []*A
 	mutable  bool
-	__tmpl   _Imm_AS
+	__tmpl   *_Imm_AS
 }
 
 var _ immutable.Immutable = new(AS)
@@ -676,15 +676,15 @@ func (s *AS) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 // 	}
 //
 type MyStruct struct {
-	_Key             MyStructKey
-	_Name            string `tag:"value"`
-	_surname         string `tag:"value"`
-	_age             int    `tag:"age"`
-	_string          string
-	_fieldWithoutTag bool
+	field_Key             MyStructKey
+	field_Name            string `tag:"value"`
+	field_surname         string `tag:"value"`
+	field_age             int    `tag:"age"`
+	anonfield_string      string
+	field_fieldWithoutTag bool
 
 	mutable bool
-	__tmpl  _Imm_MyStruct
+	__tmpl  *_Imm_MyStruct
 }
 
 var _ immutable.Immutable = new(MyStruct)
@@ -696,7 +696,7 @@ func (s *MyStruct) AsMutable() *MyStruct {
 	}
 
 	res := *s
-	res._Key.Version++
+	res.field_Key.Version++
 	res.mutable = true
 	return &res
 }
@@ -734,6 +734,7 @@ func (s *MyStruct) WithImmutable(f func(si *MyStruct)) *MyStruct {
 
 	return s
 }
+
 func (s *MyStruct) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 	if s == nil {
 		return true
@@ -755,19 +756,19 @@ func (s *MyStruct) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 	return true
 }
 func (s *MyStruct) Key() MyStructKey {
-	return s._Key
+	return s.field_Key
 }
 
 // SetKey is the setter for Key()
 func (s *MyStruct) SetKey(n MyStructKey) *MyStruct {
 	if s.mutable {
-		s._Key = n
+		s.field_Key = n
 		return s
 	}
 
 	res := *s
-	res._Key.Version++
-	res._Key = n
+	res.field_Key.Version++
+	res.field_Key = n
 	return &res
 }
 
@@ -779,19 +780,67 @@ func (s *MyStruct) SetKey(n MyStructKey) *MyStruct {
 
 */
 func (s *MyStruct) Name() string {
-	return s._Name
+	return s.field_Name
 }
 
 // SetName is the setter for Name()
 func (s *MyStruct) SetName(n string) *MyStruct {
 	if s.mutable {
-		s._Name = n
+		s.field_Name = n
 		return s
 	}
 
 	res := *s
-	res._Key.Version++
-	res._Name = n
+	res.field_Key.Version++
+	res.field_Name = n
+	return &res
+}
+func (s *MyStruct) age() int {
+	return s.field_age
+}
+
+// setAge is the setter for Age()
+func (s *MyStruct) setAge(n int) *MyStruct {
+	if s.mutable {
+		s.field_age = n
+		return s
+	}
+
+	res := *s
+	res.field_Key.Version++
+	res.field_age = n
+	return &res
+}
+func (s *MyStruct) fieldWithoutTag() bool {
+	return s.field_fieldWithoutTag
+}
+
+// setFieldWithoutTag is the setter for FieldWithoutTag()
+func (s *MyStruct) setFieldWithoutTag(n bool) *MyStruct {
+	if s.mutable {
+		s.field_fieldWithoutTag = n
+		return s
+	}
+
+	res := *s
+	res.field_Key.Version++
+	res.field_fieldWithoutTag = n
+	return &res
+}
+func (s *MyStruct) string() string {
+	return s.anonfield_string
+}
+
+// setString is the setter for String()
+func (s *MyStruct) setString(n string) *MyStruct {
+	if s.mutable {
+		s.anonfield_string = n
+		return s
+	}
+
+	res := *s
+	res.field_Key.Version++
+	res.anonfield_string = n
 	return &res
 }
 
@@ -803,67 +852,19 @@ func (s *MyStruct) SetName(n string) *MyStruct {
 
 */
 func (s *MyStruct) surname() string {
-	return s._surname
+	return s.field_surname
 }
 
 // setSurname is the setter for Surname()
 func (s *MyStruct) setSurname(n string) *MyStruct {
 	if s.mutable {
-		s._surname = n
+		s.field_surname = n
 		return s
 	}
 
 	res := *s
-	res._Key.Version++
-	res._surname = n
-	return &res
-}
-func (s *MyStruct) age() int {
-	return s._age
-}
-
-// setAge is the setter for Age()
-func (s *MyStruct) setAge(n int) *MyStruct {
-	if s.mutable {
-		s._age = n
-		return s
-	}
-
-	res := *s
-	res._Key.Version++
-	res._age = n
-	return &res
-}
-func (s *MyStruct) string() string {
-	return s._string
-}
-
-// setString is the setter for String()
-func (s *MyStruct) setString(n string) *MyStruct {
-	if s.mutable {
-		s._string = n
-		return s
-	}
-
-	res := *s
-	res._Key.Version++
-	res._string = n
-	return &res
-}
-func (s *MyStruct) fieldWithoutTag() bool {
-	return s._fieldWithoutTag
-}
-
-// setFieldWithoutTag is the setter for FieldWithoutTag()
-func (s *MyStruct) setFieldWithoutTag(n bool) *MyStruct {
-	if s.mutable {
-		s._fieldWithoutTag = n
-		return s
-	}
-
-	res := *s
-	res._Key.Version++
-	res._fieldWithoutTag = n
+	res.field_Key.Version++
+	res.field_surname = n
 	return &res
 }
 
@@ -878,12 +879,12 @@ func (s *MyStruct) setFieldWithoutTag(n bool) *MyStruct {
 // 	}
 //
 type A struct {
-	_Name string
-	_A    *A
-	_Blah Blah
+	field_Name     string
+	field_A        *A
+	anonfield_Blah Blah
 
 	mutable bool
-	__tmpl  _Imm_A
+	__tmpl  *_Imm_A
 }
 
 var _ immutable.Immutable = new(A)
@@ -932,6 +933,7 @@ func (s *A) WithImmutable(f func(si *A)) *A {
 
 	return s
 }
+
 func (s *A) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 	if s == nil {
 		return true
@@ -951,14 +953,14 @@ func (s *A) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 
 	seen[s] = true
 	{
-		v := s._A
+		v := s.field_A
 
 		if v != nil && !v.IsDeeplyNonMutable(seen) {
 			return false
 		}
 	}
 	{
-		v := s._Blah
+		v := s.anonfield_Blah
 
 		if v != nil && !v.IsDeeplyNonMutable(seen) {
 			return false
@@ -966,49 +968,49 @@ func (s *A) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 	}
 	return true
 }
-func (s *A) Name() string {
-	return s._Name
-}
-
-// SetName is the setter for Name()
-func (s *A) SetName(n string) *A {
-	if s.mutable {
-		s._Name = n
-		return s
-	}
-
-	res := *s
-	res._Name = n
-	return &res
-}
 func (s *A) A() *A {
-	return s._A
+	return s.field_A
 }
 
 // SetA is the setter for A()
 func (s *A) SetA(n *A) *A {
 	if s.mutable {
-		s._A = n
+		s.field_A = n
 		return s
 	}
 
 	res := *s
-	res._A = n
+	res.field_A = n
 	return &res
 }
 func (s *A) Blah() Blah {
-	return s._Blah
+	return s.anonfield_Blah
 }
 
 // SetBlah is the setter for Blah()
 func (s *A) SetBlah(n Blah) *A {
 	if s.mutable {
-		s._Blah = n
+		s.anonfield_Blah = n
 		return s
 	}
 
 	res := *s
-	res._Blah = n
+	res.anonfield_Blah = n
+	return &res
+}
+func (s *A) Name() string {
+	return s.field_Name
+}
+
+// SetName is the setter for Name()
+func (s *A) SetName(n string) *A {
+	if s.mutable {
+		s.field_Name = n
+		return s
+	}
+
+	res := *s
+	res.field_Name = n
 	return &res
 }
 
@@ -1020,10 +1022,10 @@ func (s *A) SetBlah(n Blah) *A {
 // 	}
 //
 type BlahUse struct {
-	_Blah Blah
+	anonfield_Blah Blah
 
 	mutable bool
-	__tmpl  _Imm_BlahUse
+	__tmpl  *_Imm_BlahUse
 }
 
 var _ immutable.Immutable = new(BlahUse)
@@ -1072,6 +1074,7 @@ func (s *BlahUse) WithImmutable(f func(si *BlahUse)) *BlahUse {
 
 	return s
 }
+
 func (s *BlahUse) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 	if s == nil {
 		return true
@@ -1091,7 +1094,7 @@ func (s *BlahUse) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 
 	seen[s] = true
 	{
-		v := s._Blah
+		v := s.anonfield_Blah
 
 		if v != nil && !v.IsDeeplyNonMutable(seen) {
 			return false
@@ -1100,17 +1103,239 @@ func (s *BlahUse) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 	return true
 }
 func (s *BlahUse) Blah() Blah {
-	return s._Blah
+	return s.anonfield_Blah
 }
 
 // SetBlah is the setter for Blah()
 func (s *BlahUse) SetBlah(n Blah) *BlahUse {
 	if s.mutable {
-		s._Blah = n
+		s.anonfield_Blah = n
 		return s
 	}
 
 	res := *s
-	res._Blah = n
+	res.anonfield_Blah = n
+	return &res
+}
+
+// types for testing embedding
+//
+// Embed1 is an immutable type and has the following template:
+//
+// 	struct {
+// 		Name	string
+// 		*Embed2
+// 	}
+//
+type Embed1 struct {
+	field_Name       string
+	anonfield_Embed2 *Embed2
+
+	mutable bool
+	__tmpl  *_Imm_Embed1
+}
+
+var _ immutable.Immutable = new(Embed1)
+var _ = new(Embed1).__tmpl
+
+func (s *Embed1) AsMutable() *Embed1 {
+	if s.Mutable() {
+		return s
+	}
+
+	res := *s
+	res.mutable = true
+	return &res
+}
+
+func (s *Embed1) AsImmutable(v *Embed1) *Embed1 {
+	if s == nil {
+		return nil
+	}
+
+	if s == v {
+		return s
+	}
+
+	s.mutable = false
+	return s
+}
+
+func (s *Embed1) Mutable() bool {
+	return s.mutable
+}
+
+func (s *Embed1) WithMutable(f func(si *Embed1)) *Embed1 {
+	res := s.AsMutable()
+	f(res)
+	res = res.AsImmutable(s)
+
+	return res
+}
+
+func (s *Embed1) WithImmutable(f func(si *Embed1)) *Embed1 {
+	prev := s.mutable
+	s.mutable = false
+	f(s)
+	s.mutable = prev
+
+	return s
+}
+
+func (s *Embed1) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
+	if s == nil {
+		return true
+	}
+
+	if s.Mutable() {
+		return false
+	}
+
+	if seen == nil {
+		return s.IsDeeplyNonMutable(make(map[interface{}]bool))
+	}
+
+	if seen[s] {
+		return true
+	}
+
+	seen[s] = true
+	{
+		v := s.anonfield_Embed2
+
+		if v != nil && !v.IsDeeplyNonMutable(seen) {
+			return false
+		}
+	}
+	return true
+}
+func (s *Embed1) Age() int {
+	return s.Embed2().Age()
+}
+func (s *Embed1) Embed2() *Embed2 {
+	return s.anonfield_Embed2
+}
+
+// SetEmbed2 is the setter for Embed2()
+func (s *Embed1) SetEmbed2(n *Embed2) *Embed1 {
+	if s.mutable {
+		s.anonfield_Embed2 = n
+		return s
+	}
+
+	res := *s
+	res.anonfield_Embed2 = n
+	return &res
+}
+func (s *Embed1) Name() string {
+	return s.field_Name
+}
+
+// SetName is the setter for Name()
+func (s *Embed1) SetName(n string) *Embed1 {
+	if s.mutable {
+		s.field_Name = n
+		return s
+	}
+
+	res := *s
+	res.field_Name = n
+	return &res
+}
+
+//
+// Embed2 is an immutable type and has the following template:
+//
+// 	struct {
+// 		Age int
+// 	}
+//
+type Embed2 struct {
+	field_Age int
+
+	mutable bool
+	__tmpl  *_Imm_Embed2
+}
+
+var _ immutable.Immutable = new(Embed2)
+var _ = new(Embed2).__tmpl
+
+func (s *Embed2) AsMutable() *Embed2 {
+	if s.Mutable() {
+		return s
+	}
+
+	res := *s
+	res.mutable = true
+	return &res
+}
+
+func (s *Embed2) AsImmutable(v *Embed2) *Embed2 {
+	if s == nil {
+		return nil
+	}
+
+	if s == v {
+		return s
+	}
+
+	s.mutable = false
+	return s
+}
+
+func (s *Embed2) Mutable() bool {
+	return s.mutable
+}
+
+func (s *Embed2) WithMutable(f func(si *Embed2)) *Embed2 {
+	res := s.AsMutable()
+	f(res)
+	res = res.AsImmutable(s)
+
+	return res
+}
+
+func (s *Embed2) WithImmutable(f func(si *Embed2)) *Embed2 {
+	prev := s.mutable
+	s.mutable = false
+	f(s)
+	s.mutable = prev
+
+	return s
+}
+
+func (s *Embed2) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
+	if s == nil {
+		return true
+	}
+
+	if s.Mutable() {
+		return false
+	}
+
+	if seen == nil {
+		return s.IsDeeplyNonMutable(make(map[interface{}]bool))
+	}
+
+	if seen[s] {
+		return true
+	}
+
+	seen[s] = true
+	return true
+}
+func (s *Embed2) Age() int {
+	return s.field_Age
+}
+
+// SetAge is the setter for Age()
+func (s *Embed2) SetAge(n int) *Embed2 {
+	if s.mutable {
+		s.field_Age = n
+		return s
+	}
+
+	res := *s
+	res.field_Age = n
 	return &res
 }

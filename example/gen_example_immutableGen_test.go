@@ -20,7 +20,7 @@ import (
 type myTestMap struct {
 	theMap  map[string]int
 	mutable bool
-	__tmpl  _Imm_myTestMap
+	__tmpl  *_Imm_myTestMap
 }
 
 var _ immutable.Immutable = new(myTestMap)

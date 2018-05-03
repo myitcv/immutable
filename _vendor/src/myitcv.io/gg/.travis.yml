@@ -1,0 +1,17 @@
+language: go
+
+go:
+  - 1.x
+
+go_import_path: myitcv.io/gg
+
+install: true
+
+before_script:
+  - ./_scripts/installGo.sh
+  - export PATH=$HOME/gotip/bin:$PATH
+  - go version
+
+script:
+  - ./_scripts/run_tests.sh
+  - ./_scripts/check_git_is_clean.sh

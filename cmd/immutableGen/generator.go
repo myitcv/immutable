@@ -4,22 +4,14 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
-	"fmt"
 	"go/ast"
 	"go/build"
 	"go/parser"
-	"go/printer"
 	"go/token"
 	"go/types"
-	"io/ioutil"
-	"log"
-	"os/exec"
 	"path/filepath"
 	"sort"
-	"strings"
-	"text/template"
 
 	"myitcv.io/gogenerate"
 	"myitcv.io/hybridimporter"
@@ -28,6 +20,8 @@ import (
 
 const (
 	fieldHidingPrefix = "_"
+	fieldNamePrefix   = "field"
+	fieldAnonPrefix   = "anon"
 )
 
 func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
@@ -59,10 +53,14 @@ func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
 		fatalf("expected to have parsed %v, instead parsed %v", envPkg, pps)
 	}
 
-	var files []*ast.File
+	var checkFiles []*ast.File
 	var fns []string
 	for fn, f := range pkg.Files {
-		files = append(files, f)
+		// skip files that we generated
+		if gogenerate.FileGeneratedBy(fn, immutableGenCmd) {
+			continue
+		}
+		checkFiles = append(checkFiles, f)
 		fns = append(fns, fn)
 	}
 
@@ -85,7 +83,7 @@ func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
 		Error:            func(err error) {},
 	}
 
-	_, err = conf.Check(bpkg.ImportPath, fset, files, info)
+	_, err = conf.Check(bpkg.ImportPath, fset, checkFiles, info)
 	if err != nil {
 		if _, ok := err.(types.Error); !ok {
 			fatalf("failed to type check %v: %v", bpkg.ImportPath, err)
@@ -101,24 +99,23 @@ func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
 		license:   licenseHeader,
 		goGenCmds: cmds,
 		files:     make(map[*ast.File]*fileTmpls),
-		cms:       make(map[*ast.File]ast.CommentMap),
+		commMaps:  make(map[*ast.File]ast.CommentMap),
 		immTypes:  make(map[string]util.ImmType),
+		immTmpls:  make(map[string]immTmpl),
+		methods:   make(map[string]string),
 	}
 
 	for _, fn := range fns {
 
-		// skip files that we generated
-		if gogenerate.FileGeneratedBy(fn, immutableGenCmd) {
-			continue
-		}
-
 		f := pkg.Files[fn]
 		out.curFile = f
 
-		out.cms[f] = ast.NewCommentMap(fset, f, f.Comments)
+		out.commMaps[f] = ast.NewCommentMap(fset, f, f.Comments)
 		out.gatherImmTypes()
-
 	}
+
+	// precompute struct methods
+	out.calcMethodSets()
 
 	out.genImmTypes()
 }
@@ -130,26 +127,51 @@ type output struct {
 	fset      *token.FileSet
 	license   string
 	goGenCmds gogenCmds
-	info      *types.Info
+
+	// type info about the package (and its deps) we are generating against
+	info *types.Info
 
 	output *bytes.Buffer
 
-	curFile *ast.File
+	immTmpls map[string]immTmpl
 
-	// a convenience map of all the imm types we will
-	// be generating in this package
+	// a convenience map of all the imm types we will be generating in this
+	// package. The map key here is the pointer type of the generated type.
 	immTypes map[string]util.ImmType
 
+	// methods is a map of pointer type name to method name for any methods with
+	// pointer receivers we visit
+	methods map[string]string
+
 	files map[*ast.File]*fileTmpls
-	cms   map[*ast.File]ast.CommentMap
+
+	// a convenience for when we are gathering imm types and generating imm
+	// types
+	curFile  *ast.File
+	commMaps map[*ast.File]ast.CommentMap
 }
 
+// fileTmpls are the immutable templates we encounter, along with any imports
+// they require
 type fileTmpls struct {
 	imports map[*ast.ImportSpec]struct{}
 
-	maps    []immMap
-	slices  []immSlice
-	structs []immStruct
+	maps    []*immMap
+	slices  []*immSlice
+	structs []*immStruct
+}
+
+type embedded struct {
+	typ  types.Type
+	es   string
+	path []string
+}
+
+type field struct {
+	path   []string
+	typ    ast.Expr
+	doc    *ast.CommentGroup
+	setter bool
 }
 
 func (o *output) isImm(t types.Type, exp string) util.ImmType {
@@ -165,7 +187,7 @@ func (o *output) isImm(t types.Type, exp string) util.ImmType {
 	// immutable type in this package. If that is the case we fall back to a
 	// comparison of the string representation of the type (which will be a
 	// pointer).
-	if tb, ok := ct.(*types.Basic); ok && tb.Kind() == types.Invalid {
+	if typeIsInvalid(ct) {
 		return o.immTypes[exp]
 	}
 
@@ -186,7 +208,42 @@ func (o *output) gatherImmTypes() {
 		matches: g.imports,
 	}
 
+	// note the file we are looking in here has _not_ been generated
+	// by immutableGen... so we won't walk into methods we generate
+
 	for _, d := range file.Decls {
+
+		if fd, ok := d.(*ast.FuncDecl); ok {
+			if fd.Recv == nil {
+				continue
+			}
+
+			if len(fd.Recv.List) != 1 {
+				continue
+			}
+
+			// this is more a sanity check than anything
+			if len(fd.Recv.List[0].Names) != 1 {
+				continue
+			}
+
+			var i *ast.Ident
+
+			if se, ok := fd.Recv.List[0].Type.(*ast.StarExpr); ok {
+				if id, ok := se.X.(*ast.Ident); ok {
+					i = id
+				}
+			}
+
+			if i == nil {
+				continue
+			}
+
+			o.methods["*"+i.Name] = fd.Name.Name
+
+			// we can't be a type decl
+			continue
+		}
 
 		gd, ok := d.(*ast.GenDecl)
 		if !ok || gd.Tok != token.TYPE {
@@ -214,38 +271,67 @@ func (o *output) gatherImmTypes() {
 
 			switch u := typ.Underlying().(type) {
 			case *types.Map:
-				g.maps = append(g.maps, immMap{
+				m := &immMap{
 					commonImm: comm,
 					name:      name,
 					typ:       u,
 					syn:       ts.Type.(*ast.MapType),
-				})
+				}
+				g.maps = append(g.maps, m)
 				o.immTypes["*"+name] = util.ImmTypeMap{}
+				o.immTmpls["*"+name] = m
 
 				ast.Walk(impf, ts.Type)
 
 			case *types.Slice:
 				// TODO support for arrays
-
-				g.slices = append(g.slices, immSlice{
+				s := &immSlice{
 					commonImm: comm,
 					name:      name,
 					typ:       u,
 					syn:       ts.Type.(*ast.ArrayType),
-				})
+				}
+
+				g.slices = append(g.slices, s)
 				o.immTypes["*"+name] = util.ImmTypeSlice{}
+				o.immTmpls["*"+name] = s
 
 				ast.Walk(impf, ts.Type)
 
 			case *types.Struct:
-				g.structs = append(g.structs, immStruct{
+				astst := ts.Type.(*ast.StructType)
+
+				var fields []astField
+
+				for _, f := range astst.Fields.List {
+					if len(f.Names) == 0 {
+						fields = append(fields, astField{
+							anon:  true,
+							name:  fieldTypeToIdent(f.Type).Name,
+							field: f,
+						})
+					} else {
+						for _, n := range f.Names {
+							fields = append(fields, astField{
+								name:  n.Name,
+								field: f,
+							})
+						}
+					}
+				}
+
+				s := &immStruct{
 					commonImm: comm,
 					name:      name,
 					typ:       u,
 					syn:       ts.Type.(*ast.StructType),
 					special:   isSpecialStruct(name, u),
-				})
+					fields:    fields,
+				}
+
+				g.structs = append(g.structs, s)
 				o.immTypes["*"+name] = util.ImmTypeStruct{}
+				o.immTmpls["*"+name] = s
 
 				ast.Walk(impf, ts.Type)
 			}
@@ -254,266 +340,4 @@ func (o *output) gatherImmTypes() {
 	}
 
 	o.files[o.curFile] = g
-}
-
-func isSpecialStruct(name string, st *types.Struct) bool {
-	// work out whether this is a special struct with a Key field
-	// pattern is:
-	//
-	// 1. struct field has a field called Key of type {{.StructName}}Key (non pointer)
-	//
-	// later checks will include:
-	//
-	// 2. said type has two fields, Uuid and Version, of type {{.StructName}}Uuid and uint64 respectively
-	// 3. the underlying type of {{.StructName}}Uuid is uint64 (we might be able to relax these two
-	// two underlying type restrictions)
-
-	if st.NumFields() == 0 {
-		return false
-	}
-
-	for i := 0; i < st.NumFields(); i++ {
-		f := st.Field(i)
-
-		if f.Name() != "Key" {
-			continue
-		}
-
-		kst, ok := f.Type().Underlying().(*types.Struct)
-		if !ok {
-			continue
-		}
-
-		if kst.NumFields() != 2 {
-			continue
-		}
-
-		uuid := kst.Field(0)
-		if uuid.Name() != "Uuid" {
-			continue
-		}
-
-		ver := kst.Field(1)
-		if ver.Name() != "Version" {
-			continue
-		}
-
-		// we found it
-		return true
-	}
-
-	return false
-}
-
-func (o *output) genImmTypes() {
-	for f, v := range o.files {
-		o.curFile = f
-
-		if len(v.maps) == 0 && len(v.slices) == 0 && len(v.structs) == 0 {
-			continue
-		}
-
-		o.output = bytes.NewBuffer(nil)
-
-		o.pfln("// Code generated by %v. DO NOT EDIT.", immutableGenCmd)
-		o.pln("")
-
-		o.pf(o.license)
-
-		o.pf("package %v\n", o.pkgName)
-
-		// is there a "standard" place for //go:generate comments?
-		for _, v := range o.goGenCmds {
-			o.pf("//go:generate %v\n", v)
-		}
-
-		o.pln("//immutableVet:skipFile")
-		o.pln("")
-
-		o.pln("import (")
-
-		o.pln("\"myitcv.io/immutable\"")
-		o.pln()
-
-		for i := range v.imports {
-			if i.Name != nil {
-				o.pfln("%v %v", i.Name.Name, i.Path.Value)
-			} else {
-				o.pfln("%v", i.Path.Value)
-			}
-		}
-
-		o.pln(")")
-
-		o.pln("")
-
-		o.genImmMaps(v.maps)
-		o.genImmSlices(v.slices)
-		o.genImmStructs(v.structs)
-
-		source := o.output.Bytes()
-
-		toWrite := source
-
-		fn := o.fset.Position(f.Pos()).Filename
-
-		// this is the file path
-		offn, ok := gogenerate.NameFileFromFile(fn, immutableGenCmd)
-		if !ok {
-			fatalf("could not name file from %v", fn)
-		}
-
-		out := bytes.NewBuffer(nil)
-		cmd := exec.Command("gofmt", "-s")
-		cmd.Stdin = o.output
-		cmd.Stdout = out
-
-		err := cmd.Run()
-		if err == nil {
-			toWrite = out.Bytes()
-		} else {
-			infof("failed to format %v: %v", fn, err)
-		}
-
-		if err := ioutil.WriteFile(offn, toWrite, 0644); err != nil {
-			fatalf("could not write %v: %v", offn, err)
-		}
-	}
-}
-
-func (o *output) exprString(e ast.Expr) string {
-	var buf bytes.Buffer
-
-	err := printer.Fprint(&buf, o.fset, e)
-	if err != nil {
-		panic(err)
-	}
-
-	return buf.String()
-}
-
-func (o *output) printCommentGroup(d *ast.CommentGroup) {
-	if d != nil {
-		for _, c := range d.List {
-			o.pfln("%v", c.Text)
-		}
-	}
-}
-
-func (o *output) printImmPreamble(name string, node ast.Node) {
-	fset := o.fset
-
-	if st, ok := node.(*ast.StructType); ok {
-
-		// we need to do some manipulation
-
-		buf := bytes.NewBuffer(nil)
-
-		fmt.Fprintf(buf, "struct {\n")
-
-		if st.Fields != nil && st.Fields.NumFields() > 0 {
-			line := o.fset.Position(st.Fields.List[0].Pos()).Line
-
-			for _, f := range st.Fields.List {
-				curLine := o.fset.Position(f.Pos()).Line
-
-				if line != curLine {
-					// catch up
-					fmt.Fprintln(buf, "")
-					line = curLine
-				}
-
-				ids := make([]string, 0, len(f.Names))
-				for _, n := range f.Names {
-					ids = append(ids, n.Name)
-				}
-				fmt.Fprintf(buf, "%v %v\n", strings.Join(ids, ","), o.exprString(f.Type))
-
-				line++
-			}
-		}
-
-		fmt.Fprintf(buf, "}")
-
-		exprStr := buf.String()
-
-		fset = token.NewFileSet()
-		newnode, err := parser.ParseExprFrom(fset, "", exprStr, 0)
-		if err != nil {
-			fatalf("could not parse documentation struct from %v: %v", exprStr, err)
-		}
-
-		node = newnode
-	}
-
-	o.pln("//")
-	o.pfln("// %v is an immutable type and has the following template:", name)
-	o.pln("//")
-
-	tmplBuf := bytes.NewBuffer(nil)
-
-	err := printer.Fprint(tmplBuf, fset, node)
-	if err != nil {
-		fatalf("could not printer template declaration: %v", err)
-	}
-
-	sc := bufio.NewScanner(tmplBuf)
-	for sc.Scan() {
-		o.pfln("// \t%v", sc.Text())
-	}
-	if err := sc.Err(); err != nil {
-		fatalf("could not scan printed template: %v", err)
-	}
-
-	o.pln("//")
-}
-
-func (o *output) pln(i ...interface{}) {
-	fmt.Fprintln(o.output, i...)
-}
-
-func (o *output) pf(format string, i ...interface{}) {
-	fmt.Fprintf(o.output, format, i...)
-}
-
-func (o *output) pfln(format string, i ...interface{}) {
-	o.pf(format+"\n", i...)
-}
-
-func (o *output) pt(tmpl string, fm template.FuncMap, val interface{}) {
-
-	// on the basis most templates are for convenience define inline
-	// as raw string literals which start the ` on one line but then start
-	// the template on the next (for readability) we strip the first leading
-	// \n if one exists
-	tmpl = strings.TrimPrefix(tmpl, "\n")
-
-	t := template.New("tmp")
-	t.Funcs(fm)
-
-	_, err := t.Parse(tmpl)
-	if err != nil {
-		panic(err)
-	}
-
-	err = t.Execute(o.output, val)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func fatalf(format string, args ...interface{}) {
-	panic(fmt.Errorf(format, args...))
-}
-
-func infoln(args ...interface{}) {
-	if *fGoGenLog == string(gogenerate.LogInfo) {
-		log.Println(args...)
-	}
-}
-
-func infof(format string, args ...interface{}) {
-	if *fGoGenLog == string(gogenerate.LogInfo) {
-		log.Printf(format, args...)
-	}
 }

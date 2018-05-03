@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"sort"
 	"strings"
 
 	"myitcv.io/immutable"
@@ -24,18 +25,38 @@ type commonImm struct {
 	dec *ast.GenDecl
 }
 
+func (c *commonImm) isImmTmpl() {}
+
+type immTmpl interface {
+	isImmTmpl()
+}
+
 type immStruct struct {
 	commonImm
 
+	// the name of the type to generate; not the pointer version
 	name string
 	syn  *ast.StructType
 	typ  *types.Struct
 
 	special bool
+
+	fields  []astField
+	methods map[string]*field
 }
 
-func (o *output) genImmStructs(structs []immStruct) {
+type astField struct {
+	anon  bool
+	name  string
+	field *ast.Field
+}
+
+func (o *output) genImmStructs(structs []*immStruct) {
 	type genField struct {
+		// the actual field name used in the generated struct
+		Field string
+
+		// The proper name of the field to be used on the method
 		Name  string
 		Type  string
 		f     *ast.Field
@@ -56,36 +77,27 @@ func (o *output) genImmStructs(structs []immStruct) {
 
 		var fields []genField
 
-		var astFields []*ast.Field
+		for _, f := range s.fields {
 
-		for _, f := range s.syn.Fields.List {
-			if len(f.Names) == 0 {
-				astFields = append(astFields, f)
-			} else {
-				for range f.Names {
-					astFields = append(astFields, f)
-				}
+			name := fieldNamePrefix + fieldHidingPrefix + f.name
+
+			if f.anon {
+				name = fieldAnonPrefix + name
 			}
-		}
 
-		for i := 0; i < s.typ.NumFields(); i++ {
-			f := s.typ.Field(i)
-			astf := astFields[i]
-
-			name := fieldHidingPrefix + f.Name()
-
-			tag := s.typ.Tag(i)
-			if tag != "" {
-				tag = "`" + tag + "`"
+			tag := ""
+			if f.field.Tag != nil {
+				tag = f.field.Tag.Value
 			}
-			typ := o.exprString(astf.Type)
+			typ := o.exprString(f.field.Type)
 
-			isImm := o.isImm(f.Type(), typ)
+			isImm := o.isImm(o.info.TypeOf(f.field.Type), typ)
 
 			fields = append(fields, genField{
-				Name:  f.Name(),
+				Field: name,
+				Name:  f.name,
 				Type:  typ,
-				f:     astf,
+				f:     f.field,
 				IsImm: isImm,
 			})
 
@@ -94,7 +106,7 @@ func (o *output) genImmStructs(structs []immStruct) {
 
 		o.pln("")
 		o.pln("mutable bool")
-		o.pfln("__tmpl %v%v", immutable.ImmTypeTmplPrefix, s.name)
+		o.pfln("__tmpl *%v%v", immutable.ImmTypeTmplPrefix, s.name)
 
 		// end of struct
 		o.pfln("}")
@@ -117,7 +129,7 @@ func (o *output) genImmStructs(structs []immStruct) {
 		`, exp, s.name)
 		if s.special {
 			o.pt(`
-			res._Key.Version++
+			res.field_Key.Version++
 			`, exp, nil)
 		}
 		o.pt(`
@@ -158,9 +170,7 @@ func (o *output) genImmStructs(structs []immStruct) {
 
 			return s
 		}
-		`, exp, s.name)
 
-		o.pt(`
 		func (s *{{.}}) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 			if s == nil {
 				return true
@@ -189,16 +199,14 @@ func (o *output) genImmStructs(structs []immStruct) {
 			case util.ImmTypeSlice, util.ImmTypeStruct, util.ImmTypeMap, util.ImmTypeImplsIntf, util.ImmTypeSimple:
 
 				tmpl := struct {
-					TypeName string
-					Field    genField
+					FieldName string
 				}{
-					TypeName: s.name,
-					Field:    f,
+					FieldName: f.Field,
 				}
 
 				o.pt(`
 				{
-					v := s.`+fieldHidingPrefix+`{{.Field.Name}}
+					v := s.{{.FieldName}}
 
 					if v != nil && !v.IsDeeplyNonMutable(seen) {
 						return false
@@ -214,43 +222,60 @@ func (o *output) genImmStructs(structs []immStruct) {
 		}
 		`, exp, s.name)
 
-		for _, f := range fields {
+		var mns []string
+		for n := range s.methods {
+			mns = append(mns, n)
+		}
+
+		sort.Strings(mns)
+
+		for _, n := range mns {
+			f := s.methods[n]
+
 			tmpl := struct {
 				TypeName string
-				Field    genField
+				Path     string
+				Type     string
+				Name     string
 			}{
 				TypeName: s.name,
-				Field:    f,
+				Path:     strings.Join(f.path, "."),
+				Type:     o.exprString(f.typ),
+				Name:     n,
 			}
 
-			exp := exporter(f.Name)
+			exp := exporter(n)
 
-			o.printCommentGroup(f.f.Doc)
+			o.printCommentGroup(f.doc)
 
 			o.pt(`
-			func (s *{{.TypeName}}) {{.Field.Name}}() {{.Field.Type}} {
-				return s.`+fieldHidingPrefix+`{{.Field.Name}}
+			func (s *{{.TypeName}}) {{.Name}}() {{.Type}} {
+				return s.{{.Path}}
 			}
-
-			// {{Export "Set"}}{{Capitalise .Field.Name}} is the setter for {{Capitalise .Field.Name}}()
-			func (s *{{.TypeName}}) {{Export "Set"}}{{Capitalise .Field.Name}}(n {{.Field.Type}}) *{{.TypeName}} {
-				if s.mutable {
-					s.`+fieldHidingPrefix+`{{.Field.Name}} = n
-					return s
-				}
-
-				res := *s
 			`, exp, tmpl)
-			if s.special {
+
+			if f.setter {
 				o.pt(`
-				res._Key.Version++
+				// {{Export "Set"}}{{Capitalise .Name}} is the setter for {{Capitalise .Name}}()
+				func (s *{{.TypeName}}) {{Export "Set"}}{{Capitalise .Name}}(n {{.Type}}) *{{.TypeName}} {
+					if s.mutable {
+						s.{{.Path}} = n
+						return s
+					}
+
+					res := *s
+				`, exp, tmpl)
+				if s.special {
+					o.pt(`
+					res.field_Key.Version++
+					`, exp, tmpl)
+				}
+				o.pt(`
+					res.{{.Path}} = n
+					return &res
+				}
 				`, exp, tmpl)
 			}
-			o.pt(`
-				res.`+fieldHidingPrefix+`{{.Field.Name}} = n
-				return &res
-			}
-			`, exp, tmpl)
 		}
 	}
 }

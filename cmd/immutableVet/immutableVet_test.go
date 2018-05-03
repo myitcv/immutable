@@ -33,7 +33,7 @@ _testFiles/test.go:36:9: non-pointer value of immutable type *myitcv.io/immutabl
 _testFiles/test.go:36:9: type should be *myitcv.io/immutable/cmd/immutableVet/_testFiles.Dummy
 _testFiles/test.go:39:9: construct using new() or generated constructors
 _testFiles/test.go:39:10: non-pointer value of immutable type *myitcv.io/immutable/cmd/immutableVet/_testFiles.Dummy found
-_testFiles/test.go:46:8: should not be using _Name of *myitcv.io/immutable/cmd/immutableVet/_testFiles.Dummy immutable type
+_testFiles/test.go:46:8: should not be using field_Name of *myitcv.io/immutable/cmd/immutableVet/_testFiles.Dummy immutable type
 _testFiles/test.go:50:8: Range() of immutable type must appear in a range statement or used with an ellipsis as the second argument to append
 _testFiles/test.go:55:7: non-pointer value of immutable type *myitcv.io/immutable/cmd/immutableVet/_testFiles.intS found
 _testFiles/test.go:56:8: non-pointer value of immutable type *myitcv.io/immutable/cmd/immutableVet/_testFiles.intS found

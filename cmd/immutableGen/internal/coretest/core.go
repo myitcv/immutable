@@ -79,5 +79,15 @@ func (b BlahNonMutable) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 	return true
 }
 
+// types for testing embedding
+type _Imm_Embed1 struct {
+	Name string
+	*Embed2
+}
+
+type _Imm_Embed2 struct {
+	Age int
+}
+
 func main() {
 }

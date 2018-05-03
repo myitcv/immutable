@@ -12,12 +12,13 @@ import (
 type immSlice struct {
 	commonImm
 
+	// the name of the type to generate; not the pointer version
 	name string
 	syn  *ast.ArrayType
 	typ  *types.Slice
 }
 
-func (o *output) genImmSlices(slices []immSlice) {
+func (o *output) genImmSlices(slices []*immSlice) {
 
 	for _, s := range slices {
 		blanks := struct {
@@ -39,7 +40,7 @@ func (o *output) genImmSlices(slices []immSlice) {
 
 		o.pfln("theSlice []%v", blanks.Type)
 		o.pln("mutable bool")
-		o.pfln("__tmpl %v%v", immutable.ImmTypeTmplPrefix, s.name)
+		o.pfln("__tmpl *%v%v", immutable.ImmTypeTmplPrefix, s.name)
 
 		// end of struct
 		o.pfln("}")
