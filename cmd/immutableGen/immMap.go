@@ -79,12 +79,14 @@ func (o *output) genImmMaps(maps []immMap) {
 		valIsImmOk := false
 
 		switch keyIsImm.(type) {
-		case util.ImmTypeStruct, util.ImmTypeSlice, util.ImmTypeMap, util.ImmTypeImplsIntf:
+		case nil, util.ImmTypeBasic:
+		default:
 			keyIsImmOk = true
 		}
 
 		switch valIsImm.(type) {
-		case util.ImmTypeStruct, util.ImmTypeSlice, util.ImmTypeMap, util.ImmTypeImplsIntf:
+		case nil, util.ImmTypeBasic:
+		default:
 			valIsImmOk = true
 		}
 
@@ -122,41 +124,19 @@ func (o *output) genImmMaps(maps []immMap) {
 			}
 
 			if keyIsImmOk {
-				if _, ok := keyIsImm.(util.ImmTypeImplsIntf); ok {
-					o.pt(`
-					switch k.(type) {
-					case immutable.Immutable:
-						if !k.IsDeeplyNonMutable(seen) {
-							return false
-						}
-					}
-					`, exp, m.name)
-				} else {
-					o.pt(`
-					if k != nil && !k.IsDeeplyNonMutable(seen) {
-						return false
-					}
-					`, exp, m.name)
+				o.pt(`
+				if k != nil && !k.IsDeeplyNonMutable(seen) {
+					return false
 				}
+				`, exp, m.name)
 			}
 
 			if valIsImmOk {
-				if _, ok := valIsImm.(util.ImmTypeImplsIntf); ok {
-					o.pt(`
-					switch v.(type) {
-					case immutable.Immutable:
-						if !v.IsDeeplyNonMutable(seen) {
-							return false
-						}
-					}
-					`, exp, m.name)
-				} else {
-					o.pt(`
-					if v != nil && !v.IsDeeplyNonMutable(seen) {
-						return false
-					}
-					`, exp, m.name)
+				o.pt(`
+				if v != nil && !v.IsDeeplyNonMutable(seen) {
+					return false
 				}
+				`, exp, m.name)
 			}
 
 			o.pt(`

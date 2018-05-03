@@ -72,7 +72,8 @@ func (o *output) genImmSlices(slices []immSlice) {
 		valIsImmOk := false
 
 		switch valIsImm.(type) {
-		case util.ImmTypeStruct, util.ImmTypeSlice, util.ImmTypeMap, util.ImmTypeImplsIntf:
+		case nil, util.ImmTypeBasic:
+		default:
 			valIsImmOk = true
 		}
 
@@ -95,22 +96,11 @@ func (o *output) genImmSlices(slices []immSlice) {
 			for _, v := range s.theSlice {
 			`, exp, s.name)
 
-			if _, ok := valIsImm.(util.ImmTypeImplsIntf); ok {
-				o.pt(`
-					switch v := v.(type) {
-					case immutable.Immutable:
-						if !v.IsDeeplyNonMutable(seen) {
-							return false
-						}
-					}
-				`, exp, s.name)
-			} else {
-				o.pt(`
-					if v != nil && !v.IsDeeplyNonMutable(seen) {
-						return false
-					}
-				`, exp, s.name)
-			}
+			o.pt(`
+				if v != nil && !v.IsDeeplyNonMutable(seen) {
+					return false
+				}
+			`, exp, s.name)
 
 			o.pt(`
 			}
