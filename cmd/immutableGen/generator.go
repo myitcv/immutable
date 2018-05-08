@@ -13,6 +13,7 @@ import (
 	"go/printer"
 	"go/token"
 	"go/types"
+	"io/ioutil"
 	"log"
 	"os/exec"
 	"path/filepath"
@@ -373,15 +374,8 @@ func (o *output) genImmTypes() {
 			infof("failed to format %v: %v", fn, err)
 		}
 
-		wrote, err := gogenerate.WriteIfDiff(toWrite, offn)
-		if err != nil {
+		if err := ioutil.WriteFile(offn, toWrite, 0644); err != nil {
 			fatalf("could not write %v: %v", offn, err)
-		}
-
-		if wrote {
-			infof("writing %v", offn)
-		} else {
-			infof("skipping writing of %v; it's identical", offn)
 		}
 	}
 }
