@@ -80,8 +80,9 @@ func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
 	}
 
 	conf := types.Config{
-		Importer: imp,
-		Error:    func(err error) {},
+		IgnoreFuncBodies: true,
+		Importer:         imp,
+		Error:            func(err error) {},
 	}
 
 	_, err = conf.Check(bpkg.ImportPath, fset, files, info)
