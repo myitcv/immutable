@@ -1,0 +1,9 @@
+{
+  "Cmds": [
+    "myitcv.io/immutable/cmd/immutableGen"
+  ],
+  "NonCmds": [
+    "echo"
+  ]
+}
+

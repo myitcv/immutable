@@ -12,12 +12,13 @@ import (
 type immMap struct {
 	commonImm
 
+	// the name of the type to generate; not the pointer version
 	name string
 	syn  *ast.MapType
 	typ  *types.Map
 }
 
-func (o *output) genImmMaps(maps []immMap) {
+func (o *output) genImmMaps(maps []*immMap) {
 	for _, m := range maps {
 		blanks := struct {
 			Name    string
@@ -42,7 +43,7 @@ func (o *output) genImmMaps(maps []immMap) {
 
 		o.pfln("theMap map[%v]%v", blanks.KeyType, blanks.ValType)
 		o.pln("mutable bool")
-		o.pfln("__tmpl %v%v", immutable.ImmTypeTmplPrefix, m.name)
+		o.pfln("__tmpl *%v%v", immutable.ImmTypeTmplPrefix, m.name)
 
 		// end of struct
 		o.pfln("}")

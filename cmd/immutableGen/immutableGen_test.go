@@ -18,6 +18,8 @@ import (
 
 const (
 	TestFiles = "internal/coretest"
+
+	debugOut = false
 )
 
 func TestBasic(t *testing.T) {
@@ -40,14 +42,11 @@ func TestBasic(t *testing.T) {
 		panic(err)
 	}
 
-	_, err = io.Copy(os.Stdout, genOut)
-	if err != nil {
-		panic(err)
-	}
-
-	_, err = genOut.Seek(0, 0)
-	if err != nil {
-		panic(err)
+	if debugOut {
+		_, err = io.Copy(os.Stdout, genOut)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	fset := token.NewFileSet()

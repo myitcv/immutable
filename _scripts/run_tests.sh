@@ -6,18 +6,17 @@
 source "${BASH_SOURCE%/*}/common.bash"
 
 export GOPATH=$PWD/_vendor:$GOPATH
-export PATH=$GOPATH/bin:$PATH
+export PATH=$GOPATH/bin:$PWD/_vendor/bin:$PATH
 
 rm -f !(_vendor)/**/gen_*.go
 
-go install myitcv.io/immutable/cmd/immutableGen
-go install myitcv.io/immutable/cmd/immutableVet
+go install myitcv.io/gg
 
 pushd cmd/immutableVet/_testFiles > /dev/null
-go generate
+gg ./...
 popd > /dev/null
 
-go generate ./...
+gg ./...
 go install ./...
 go test myitcv.io/immutable/cmd/immutableGen/internal/coretest
 go test ./...
