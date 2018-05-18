@@ -19,7 +19,9 @@ type (
 	// ImmTypeStruct is used to indicate a type that is immutable by virtue of
 	// being a pointer to a struct type that was itself generated from an _Imm_
 	// struct template.
-	ImmTypeStruct struct{}
+	ImmTypeStruct struct {
+		Struct *types.Struct
+	}
 
 	// ImmTypeMap is used to indicate a type that is immutable by virtue of
 	// being a pointer to a struct type that was itself generated from an _Imm_
@@ -284,7 +286,9 @@ func (i *immCache) lookup(tt types.Type) (v ImmType) {
 	}
 
 	if v == (ImmTypeImplsIntf{}) && hasTmpl {
-		v = ImmTypeStruct{}
+		v = ImmTypeStruct{
+			Struct: st,
+		}
 	}
 
 	return

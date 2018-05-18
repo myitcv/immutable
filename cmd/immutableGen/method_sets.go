@@ -2,12 +2,43 @@ package main
 
 import (
 	"fmt"
+	"go/ast"
 	"go/types"
 	"strings"
+	"unicode"
+	"unicode/utf8"
+
+	"myitcv.io/immutable/util"
 )
 
 func (o *output) calcMethodSets() {
 	for _, fts := range o.files {
+
+		typeToString := func(t types.Type) string {
+			return types.TypeString(t, func(p *types.Package) string {
+				if p.Path() == o.pkgPath {
+					return ""
+				}
+
+				for i := range fts.imports {
+					ip := strings.Trim(i.Path.Value, "\"")
+					if p.Path() == ip {
+						if i.Name != nil {
+							return i.Name.Name
+						}
+						return p.Name()
+					}
+				}
+
+				newImport := &ast.ImportSpec{
+					Path: &ast.BasicLit{Value: fmt.Sprintf(`"%v"`, p.Path())},
+				}
+				fts.imports[newImport] = struct{}{}
+
+				return p.Name()
+			})
+		}
+
 		for _, is := range fts.structs {
 			debugf(">> calculating %v\n", is.name)
 
@@ -61,14 +92,14 @@ func (o *output) calcMethodSets() {
 								}
 								addPoss(f.name, field{
 									path:   []string{fname},
-									typ:    f.field.Type,
+									typ:    o.exprString(f.field.Type),
 									setter: true,
 									doc:    f.field.Doc,
 								})
 							} else {
 								addPoss(f.name, field{
 									path: []string{f.name + "()"},
-									typ:  f.field.Type,
+									typ:  o.exprString(f.field.Type),
 								})
 							}
 
@@ -96,6 +127,38 @@ func (o *output) calcMethodSets() {
 					}
 					seen[kt] = true
 					debugf("using type check on %T %v\n", h.typ, h.typ)
+					switch v := util.IsImmType(h.typ).(type) {
+					case util.ImmTypeStruct:
+						is := v.Struct
+						for i := 0; i < is.NumFields(); i++ {
+							f := is.Field(i)
+							name := f.Name()
+							isAnon := false
+							if strings.HasPrefix(name, "anon") {
+								isAnon = true
+								name = strings.TrimPrefix(name, "anon")
+							}
+							if !strings.HasPrefix(name, "field_") {
+								continue
+							}
+							name = strings.TrimPrefix(name, "field_")
+							// we can only consider exported fields
+							if r, _ := utf8.DecodeRuneInString(name); unicode.IsLower(r) {
+								continue
+							}
+							addPoss(name, field{
+								typ:  typeToString(f.Type()),
+								path: []string{name + "()"},
+							})
+
+							if isAnon {
+								next = append(next, embedded{
+									path: append(append([]string(nil), h.path...), name+"()"),
+									typ:  f.Type(),
+								})
+							}
+						}
+					}
 				}
 
 				if len(work) == 0 {
