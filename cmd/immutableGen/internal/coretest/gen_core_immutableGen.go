@@ -9,6 +9,8 @@ package coretest
 
 import (
 	"myitcv.io/immutable"
+
+	"myitcv.io/immutable/cmd/immutableGen/internal/coretest/pkga"
 )
 
 // a comment about MyMap
@@ -1125,11 +1127,13 @@ func (s *BlahUse) SetBlah(n Blah) *BlahUse {
 // 	struct {
 // 		Name	string
 // 		*Embed2
+// 		*pkga.PkgA
 // 	}
 //
 type Embed1 struct {
 	field_Name       string
 	anonfield_Embed2 *Embed2
+	anonfield_PkgA   *pkga.PkgA
 
 	mutable bool
 	__tmpl  *_Imm_Embed1
@@ -1207,7 +1211,17 @@ func (s *Embed1) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 			return false
 		}
 	}
+	{
+		v := s.anonfield_PkgA
+
+		if v != nil && !v.IsDeeplyNonMutable(seen) {
+			return false
+		}
+	}
 	return true
+}
+func (s *Embed1) Address() string {
+	return s.PkgA().Address()
 }
 func (s *Embed1) Age() int {
 	return s.Embed2().Age()
@@ -1240,6 +1254,21 @@ func (s *Embed1) SetName(n string) *Embed1 {
 
 	res := *s
 	res.field_Name = n
+	return &res
+}
+func (s *Embed1) PkgA() *pkga.PkgA {
+	return s.anonfield_PkgA
+}
+
+// SetPkgA is the setter for PkgA()
+func (s *Embed1) SetPkgA(n *pkga.PkgA) *Embed1 {
+	if s.mutable {
+		s.anonfield_PkgA = n
+		return s
+	}
+
+	res := *s
+	res.anonfield_PkgA = n
 	return &res
 }
 

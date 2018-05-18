@@ -240,7 +240,7 @@ func (o *output) genImmStructs(structs []*immStruct) {
 			}{
 				TypeName: s.name,
 				Path:     strings.Join(f.path, "."),
-				Type:     o.exprString(f.typ),
+				Type:     f.typ,
 				Name:     n,
 			}
 

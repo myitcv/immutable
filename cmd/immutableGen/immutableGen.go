@@ -24,7 +24,7 @@ var (
 )
 
 const (
-	debug = false
+	debug = true
 )
 
 func init() {

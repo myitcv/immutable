@@ -169,7 +169,7 @@ type embedded struct {
 
 type field struct {
 	path   []string
-	typ    ast.Expr
+	typ    string
 	doc    *ast.CommentGroup
 	setter bool
 }
