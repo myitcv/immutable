@@ -82,11 +82,18 @@ func (b BlahNonMutable) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 	return true
 }
 
+type _Imm_Clash1 struct {
+	Clash    string
+	NoClash1 string
+}
+
 // types for testing embedding
 type _Imm_Embed1 struct {
 	Name string
 	*Embed2
 	*pkga.PkgA
+	*Clash1
+	*pkga.Clash2
 }
 
 type _Imm_Embed2 struct {
