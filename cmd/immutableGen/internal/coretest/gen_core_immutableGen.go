@@ -11,6 +11,7 @@ import (
 	"myitcv.io/immutable"
 
 	"myitcv.io/immutable/cmd/immutableGen/internal/coretest/pkga"
+	"myitcv.io/immutable/cmd/immutableGen/internal/coretest/pkgb"
 )
 
 // a comment about MyMap
@@ -1120,6 +1121,120 @@ func (s *BlahUse) SetBlah(n Blah) *BlahUse {
 	return &res
 }
 
+//
+// Clash1 is an immutable type and has the following template:
+//
+// 	struct {
+// 		Clash		string
+// 		NoClash1	string
+// 	}
+//
+type Clash1 struct {
+	field_Clash    string
+	field_NoClash1 string
+
+	mutable bool
+	__tmpl  *_Imm_Clash1
+}
+
+var _ immutable.Immutable = new(Clash1)
+var _ = new(Clash1).__tmpl
+
+func (s *Clash1) AsMutable() *Clash1 {
+	if s.Mutable() {
+		return s
+	}
+
+	res := *s
+	res.mutable = true
+	return &res
+}
+
+func (s *Clash1) AsImmutable(v *Clash1) *Clash1 {
+	if s == nil {
+		return nil
+	}
+
+	if s == v {
+		return s
+	}
+
+	s.mutable = false
+	return s
+}
+
+func (s *Clash1) Mutable() bool {
+	return s.mutable
+}
+
+func (s *Clash1) WithMutable(f func(si *Clash1)) *Clash1 {
+	res := s.AsMutable()
+	f(res)
+	res = res.AsImmutable(s)
+
+	return res
+}
+
+func (s *Clash1) WithImmutable(f func(si *Clash1)) *Clash1 {
+	prev := s.mutable
+	s.mutable = false
+	f(s)
+	s.mutable = prev
+
+	return s
+}
+
+func (s *Clash1) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
+	if s == nil {
+		return true
+	}
+
+	if s.Mutable() {
+		return false
+	}
+
+	if seen == nil {
+		return s.IsDeeplyNonMutable(make(map[interface{}]bool))
+	}
+
+	if seen[s] {
+		return true
+	}
+
+	seen[s] = true
+	return true
+}
+func (s *Clash1) Clash() string {
+	return s.field_Clash
+}
+
+// SetClash is the setter for Clash()
+func (s *Clash1) SetClash(n string) *Clash1 {
+	if s.mutable {
+		s.field_Clash = n
+		return s
+	}
+
+	res := *s
+	res.field_Clash = n
+	return &res
+}
+func (s *Clash1) NoClash1() string {
+	return s.field_NoClash1
+}
+
+// SetNoClash1 is the setter for NoClash1()
+func (s *Clash1) SetNoClash1(n string) *Clash1 {
+	if s.mutable {
+		s.field_NoClash1 = n
+		return s
+	}
+
+	res := *s
+	res.field_NoClash1 = n
+	return &res
+}
+
 // types for testing embedding
 //
 // Embed1 is an immutable type and has the following template:
@@ -1128,12 +1243,16 @@ func (s *BlahUse) SetBlah(n Blah) *BlahUse {
 // 		Name	string
 // 		*Embed2
 // 		*pkga.PkgA
+// 		*Clash1
+// 		*pkga.Clash2
 // 	}
 //
 type Embed1 struct {
 	field_Name       string
 	anonfield_Embed2 *Embed2
 	anonfield_PkgA   *pkga.PkgA
+	anonfield_Clash1 *Clash1
+	anonfield_Clash2 *pkga.Clash2
 
 	mutable bool
 	__tmpl  *_Imm_Embed1
@@ -1218,6 +1337,20 @@ func (s *Embed1) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
 			return false
 		}
 	}
+	{
+		v := s.anonfield_Clash1
+
+		if v != nil && !v.IsDeeplyNonMutable(seen) {
+			return false
+		}
+	}
+	{
+		v := s.anonfield_Clash2
+
+		if v != nil && !v.IsDeeplyNonMutable(seen) {
+			return false
+		}
+	}
 	return true
 }
 func (s *Embed1) Address() string {
@@ -1225,6 +1358,36 @@ func (s *Embed1) Address() string {
 }
 func (s *Embed1) Age() int {
 	return s.Embed2().Age()
+}
+func (s *Embed1) Clash1() *Clash1 {
+	return s.anonfield_Clash1
+}
+
+// SetClash1 is the setter for Clash1()
+func (s *Embed1) SetClash1(n *Clash1) *Embed1 {
+	if s.mutable {
+		s.anonfield_Clash1 = n
+		return s
+	}
+
+	res := *s
+	res.anonfield_Clash1 = n
+	return &res
+}
+func (s *Embed1) Clash2() *pkga.Clash2 {
+	return s.anonfield_Clash2
+}
+
+// SetClash2 is the setter for Clash2()
+func (s *Embed1) SetClash2(n *pkga.Clash2) *Embed1 {
+	if s.mutable {
+		s.anonfield_Clash2 = n
+		return s
+	}
+
+	res := *s
+	res.anonfield_Clash2 = n
+	return &res
 }
 func (s *Embed1) Embed2() *Embed2 {
 	return s.anonfield_Embed2
@@ -1256,6 +1419,12 @@ func (s *Embed1) SetName(n string) *Embed1 {
 	res.field_Name = n
 	return &res
 }
+func (s *Embed1) NoClash1() string {
+	return s.Clash1().NoClash1()
+}
+func (s *Embed1) NoClash2() string {
+	return s.Clash2().NoClash2()
+}
 func (s *Embed1) PkgA() *pkga.PkgA {
 	return s.anonfield_PkgA
 }
@@ -1270,6 +1439,12 @@ func (s *Embed1) SetPkgA(n *pkga.PkgA) *Embed1 {
 	res := *s
 	res.anonfield_PkgA = n
 	return &res
+}
+func (s *Embed1) PkgB() *pkgb.PkgB {
+	return s.PkgA().PkgB()
+}
+func (s *Embed1) Postcode() string {
+	return s.PkgA().PkgB().Postcode()
 }
 
 //
