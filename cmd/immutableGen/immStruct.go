@@ -295,7 +295,21 @@ func (o *output) genImmStructs(structs []*immStruct) {
 							rp = rp + "."
 						}
 						sp := strings.TrimSuffix(p, "()")
-						o.pf("%v := s.%vSet%v(%v)\n", v, rp, sp, last)
+
+						tmpl := struct {
+							V    string
+							Rp   string
+							Sp   string
+							Last string
+						}{
+							V:    v,
+							Rp:   rp,
+							Sp:   sp,
+							Last: last,
+						}
+						exp := exporter(sp)
+						o.pt(`{{.V}} := s.{{.Rp}}{{Export "Set"}}{{Capitalise .Sp}}({{.Last}})
+						`, exp, tmpl)
 					} else {
 						o.pf("%v := s.%v\n", v, rp)
 						o.pf("%v.%v = %v\n", v, p, last)
