@@ -79,7 +79,6 @@ func (o *output) calcMethodSets() {
 					if _, ok := possSet[name]; ok {
 						possSet[name] = nil
 					} else {
-						fmt.Printf("addPoss %v\n", name)
 						f.path = append(append([]string(nil), h.path...), f.path...)
 						possSet[name] = &f
 					}
@@ -153,7 +152,6 @@ func (o *output) calcMethodSets() {
 					debugf("using type check on %T %v\n", h.typ, h.typ)
 					if v, ok := util.IsImmType(h.typ).(util.ImmTypeStruct); ok {
 						is := v.Struct
-						fmt.Printf("))) %v %v\n", h.typ, is.NumFields())
 						for i := 0; i < is.NumFields(); i++ {
 							f := is.Field(i)
 							name := f.Name()
@@ -183,10 +181,8 @@ func (o *output) calcMethodSets() {
 							}
 						}
 					} else if v, ok := h.typ.Underlying().(*types.Struct); ok {
-						fmt.Printf("))) %v %v\n", h.typ, v.NumFields())
 						for i := 0; i < v.NumFields(); i++ {
 							f := v.Field(i)
-							fmt.Printf("::: %v %v %v\n", f.Name(), f.Exported(), f.Anonymous())
 							if !f.Exported() {
 								continue
 							}
