@@ -12,6 +12,7 @@ import (
 )
 
 func (o *output) calcMethodSets() {
+
 	for _, fts := range o.files {
 
 		typeToString := func(t types.Type) string {
@@ -37,6 +38,29 @@ func (o *output) calcMethodSets() {
 
 				return p.Name()
 			})
+		}
+		possInvalidTypeToString := func(t types.Type) string {
+
+			var tn string
+			if typeIsInvalid(t) {
+				// TODO: bit gross....
+				var fte ast.Expr
+				for e, tv := range o.info.Types {
+					if tv.Type == t {
+						if fte != nil {
+							panic(fmt.Errorf("had two entries for the same invalid type; what to do?: %v and %v", fte, e))
+						}
+						fte = e
+					}
+				}
+				if fte == nil {
+					panic(fmt.Errorf("could not resolve expression for invalid type"))
+				}
+				tn = o.exprString(fte)
+			} else {
+				tn = typeToString(t)
+			}
+			return tn
 		}
 
 		for _, is := range fts.structs {
@@ -147,7 +171,7 @@ func (o *output) calcMethodSets() {
 								continue
 							}
 							addPoss(name, field{
-								typ:  typeToString(f.Type()),
+								typ:  possInvalidTypeToString(f.Type()),
 								path: []string{name + "()"},
 							})
 
@@ -168,7 +192,7 @@ func (o *output) calcMethodSets() {
 							}
 							name := f.Name()
 							addPoss(name, field{
-								typ:  typeToString(f.Type()),
+								typ:  possInvalidTypeToString(f.Type()),
 								path: []string{name},
 							})
 							if f.Anonymous() {
