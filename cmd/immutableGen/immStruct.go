@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -254,7 +255,10 @@ func (o *output) genImmStructs(structs []*immStruct) {
 			}
 			`, exp, tmpl)
 
-			if f.setter {
+			switch len(f.path) {
+			case 0:
+				panic(fmt.Errorf("We have zero path"))
+			case 1:
 				o.pt(`
 				// {{Export "Set"}}{{Capitalise .Name}} is the setter for {{Capitalise .Name}}()
 				func (s *{{.TypeName}}) {{Export "Set"}}{{Capitalise .Name}}(n {{.Type}}) *{{.TypeName}} {
@@ -275,6 +279,31 @@ func (o *output) genImmStructs(structs []*immStruct) {
 					return &res
 				}
 				`, exp, tmpl)
+			default:
+				o.pt(`
+				func (s *{{.TypeName}}) {{Export "Set"}}{{Capitalise .Name}}(n {{.Type}}) *{{.TypeName}} {
+				`, exp, tmpl)
+				last := "n"
+				for i := len(f.path) - 1; i >= 0; i-- {
+					v := fmt.Sprintf("v%v", i)
+					p := f.path[i]
+
+					rp := strings.Join(f.path[:i], ".")
+
+					if strings.HasSuffix(p, "()") {
+						if rp != "" {
+							rp = rp + "."
+						}
+						sp := strings.TrimSuffix(p, "()")
+						o.pf("%v := s.%vSet%v(%v)\n", v, rp, sp, last)
+					} else {
+						o.pf("%v := s.%v\n", v, rp)
+						o.pf("%v.%v = %v\n", v, p, last)
+					}
+					last = v
+				}
+				o.pf("return %v\n", last)
+				o.pln("}")
 			}
 		}
 	}

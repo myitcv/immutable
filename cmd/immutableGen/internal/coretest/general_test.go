@@ -2,6 +2,7 @@ package coretest
 
 import (
 	"testing"
+	"time"
 
 	"myitcv.io/immutable/cmd/immutableGen/internal/coretest/pkga"
 	"myitcv.io/immutable/cmd/immutableGen/internal/coretest/pkgb"
@@ -23,6 +24,10 @@ func TestAnonFields(t *testing.T) {
 }
 
 func TestEmbedAccess(t *testing.T) {
+	now := time.Now()
+	ns := NonImmStruct{
+		Now: now,
+	}
 	b := new(pkgb.PkgB).SetPostcode("London")
 	c1 := new(Clash1).SetNoClash1("NoClash1")
 	c2 := new(pkga.Clash2).SetNoClash2("NoClash2")
@@ -34,6 +39,7 @@ func TestEmbedAccess(t *testing.T) {
 		e1.SetPkgA(a)
 		e1.SetClash1(c1)
 		e1.SetClash2(c2)
+		e1.SetNonImmStruct(ns)
 	})
 
 	{
@@ -70,6 +76,28 @@ func TestEmbedAccess(t *testing.T) {
 		want := "London"
 		if got := e1.Postcode(); want != got {
 			t.Fatalf("e1.Postcode(): want %v, got %v", want, got)
+		}
+	}
+	{
+		want := now
+		if got := e1.Now(); want != got {
+			t.Fatalf("e1.Now(): want %v, got %v", want, got)
+		}
+	}
+
+	newNow := time.Now()
+	e1p := e1.SetNow(newNow)
+
+	{
+		want := now
+		if got := e1.Now(); want != got {
+			t.Fatalf("e1.Now(): want %v, got %v", want, got)
+		}
+	}
+	{
+		want := newNow
+		if got := e1p.Now(); want != got {
+			t.Fatalf("e2.Now(): want %v, got %v", want, got)
 		}
 	}
 }

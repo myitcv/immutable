@@ -1,6 +1,8 @@
 package coretest
 
 import (
+	"time"
+
 	"myitcv.io/immutable"
 	"myitcv.io/immutable/cmd/immutableGen/internal/coretest/pkga"
 )
@@ -94,10 +96,21 @@ type _Imm_Embed1 struct {
 	*pkga.PkgA
 	*Clash1
 	*pkga.Clash2
+	NonImmStruct
+	pkga.NonImmStructA
 }
 
 type _Imm_Embed2 struct {
 	Age int
+}
+
+type NonImmStruct struct {
+	Now time.Time
+	*Other
+}
+
+type _Imm_Other struct {
+	OtherName string
 }
 
 func main() {

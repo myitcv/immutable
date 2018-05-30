@@ -133,6 +133,11 @@ func (s *PkgA) SetPkgB(n *pkgb.PkgB) *PkgA {
 func (s *PkgA) Postcode() string {
 	return s.PkgB().Postcode()
 }
+func (s *PkgA) SetPostcode(n string) *PkgA {
+	v1 := s.PkgB().SetPostcode(n)
+	v0 := s.SetPkgB(v1)
+	return v0
+}
 
 //
 // Clash2 is an immutable type and has the following template:
@@ -245,5 +250,102 @@ func (s *Clash2) SetNoClash2(n string) *Clash2 {
 
 	res := *s
 	res.field_NoClash2 = n
+	return &res
+}
+
+//
+// OtherA is an immutable type and has the following template:
+//
+// 	struct {
+// 		OtherNameA string
+// 	}
+//
+type OtherA struct {
+	field_OtherNameA string
+
+	mutable bool
+	__tmpl  *_Imm_OtherA
+}
+
+var _ immutable.Immutable = new(OtherA)
+var _ = new(OtherA).__tmpl
+
+func (s *OtherA) AsMutable() *OtherA {
+	if s.Mutable() {
+		return s
+	}
+
+	res := *s
+	res.mutable = true
+	return &res
+}
+
+func (s *OtherA) AsImmutable(v *OtherA) *OtherA {
+	if s == nil {
+		return nil
+	}
+
+	if s == v {
+		return s
+	}
+
+	s.mutable = false
+	return s
+}
+
+func (s *OtherA) Mutable() bool {
+	return s.mutable
+}
+
+func (s *OtherA) WithMutable(f func(si *OtherA)) *OtherA {
+	res := s.AsMutable()
+	f(res)
+	res = res.AsImmutable(s)
+
+	return res
+}
+
+func (s *OtherA) WithImmutable(f func(si *OtherA)) *OtherA {
+	prev := s.mutable
+	s.mutable = false
+	f(s)
+	s.mutable = prev
+
+	return s
+}
+
+func (s *OtherA) IsDeeplyNonMutable(seen map[interface{}]bool) bool {
+	if s == nil {
+		return true
+	}
+
+	if s.Mutable() {
+		return false
+	}
+
+	if seen == nil {
+		return s.IsDeeplyNonMutable(make(map[interface{}]bool))
+	}
+
+	if seen[s] {
+		return true
+	}
+
+	seen[s] = true
+	return true
+}
+func (s *OtherA) OtherNameA() string {
+	return s.field_OtherNameA
+}
+
+// SetOtherNameA is the setter for OtherNameA()
+func (s *OtherA) SetOtherNameA(n string) *OtherA {
+	if s.mutable {
+		s.field_OtherNameA = n
+		return s
+	}
+
+	res := *s
+	res.field_OtherNameA = n
 	return &res
 }
