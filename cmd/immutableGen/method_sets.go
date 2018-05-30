@@ -55,6 +55,7 @@ func (o *output) calcMethodSets() {
 					if _, ok := possSet[name]; ok {
 						possSet[name] = nil
 					} else {
+						fmt.Printf("addPoss %v\n", name)
 						f.path = append(append([]string(nil), h.path...), f.path...)
 						possSet[name] = &f
 					}
@@ -91,10 +92,9 @@ func (o *output) calcMethodSets() {
 									fname = fieldAnonPrefix + fname
 								}
 								addPoss(f.name, field{
-									path:   []string{fname},
-									typ:    o.exprString(f.field.Type),
-									setter: true,
-									doc:    f.field.Doc,
+									path: []string{fname},
+									typ:  o.exprString(f.field.Type),
+									doc:  f.field.Doc,
 								})
 							} else {
 								addPoss(f.name, field{
@@ -127,9 +127,9 @@ func (o *output) calcMethodSets() {
 					}
 					seen[kt] = true
 					debugf("using type check on %T %v\n", h.typ, h.typ)
-					switch v := util.IsImmType(h.typ).(type) {
-					case util.ImmTypeStruct:
+					if v, ok := util.IsImmType(h.typ).(util.ImmTypeStruct); ok {
 						is := v.Struct
+						fmt.Printf("))) %v %v\n", h.typ, is.NumFields())
 						for i := 0; i < is.NumFields(); i++ {
 							f := is.Field(i)
 							name := f.Name()
@@ -154,6 +154,26 @@ func (o *output) calcMethodSets() {
 							if isAnon {
 								next = append(next, embedded{
 									path: append(append([]string(nil), h.path...), name+"()"),
+									typ:  f.Type(),
+								})
+							}
+						}
+					} else if v, ok := h.typ.Underlying().(*types.Struct); ok {
+						fmt.Printf("))) %v %v\n", h.typ, v.NumFields())
+						for i := 0; i < v.NumFields(); i++ {
+							f := v.Field(i)
+							fmt.Printf("::: %v %v %v\n", f.Name(), f.Exported(), f.Anonymous())
+							if !f.Exported() {
+								continue
+							}
+							name := f.Name()
+							addPoss(name, field{
+								typ:  typeToString(f.Type()),
+								path: []string{name},
+							})
+							if f.Anonymous() {
+								next = append(next, embedded{
+									path: append(append([]string(nil), h.path...), name),
 									typ:  f.Type(),
 								})
 							}

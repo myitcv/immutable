@@ -168,10 +168,9 @@ type embedded struct {
 }
 
 type field struct {
-	path   []string
-	typ    string
-	doc    *ast.CommentGroup
-	setter bool
+	path []string
+	typ  string
+	doc  *ast.CommentGroup
 }
 
 func (o *output) isImm(t types.Type, exp string) util.ImmType {
