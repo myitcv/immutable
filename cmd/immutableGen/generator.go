@@ -66,7 +66,7 @@ func execute(dir string, envPkg string, licenseHeader string, cmds gogenCmds) {
 
 	sort.Strings(fns)
 
-	imp, err := hybridimporter.New(&build.Default, fset, bpkg.ImportPath, ".")
+	imp, err := hybridimporter.New(&build.Default, fset, ".")
 	if err != nil {
 		fatalf("failed to create importer for %v: %v", bpkg.ImportPath, err)
 	}

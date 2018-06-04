@@ -15,6 +15,7 @@ go_import_path: myitcv.io/hybridimporter
 install: true
 
 before_script:
+  - unset GOROOT
   - ./_scripts/installGo.sh
   - export PATH=$HOME/gotip/bin:$PATH
   - go version

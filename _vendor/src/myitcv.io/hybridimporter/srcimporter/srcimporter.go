@@ -15,7 +15,9 @@ import (
 	"go/types"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -140,6 +142,29 @@ func (p *Importer) ImportFrom(path, srcDir string, mode types.ImportMode) (*type
 		// this can only happen if we have a bug in go/types
 		panic("package is not safe yet no error was returned")
 	}
+
+	// fork an install if required
+	args := []string{"go", "install", bp.ImportPath}
+	if len(p.ctxt.BuildTags) > 0 {
+		args = append(args, "-tags", strings.Join(p.ctxt.BuildTags, ","))
+	}
+	if p.ctxt.InstallSuffix != "" {
+		args = append(args, "-installsuffix", p.ctxt.InstallSuffix)
+	}
+	if p.ctxt.Compiler != "" {
+		args = append(args, "-compiler", p.ctxt.Compiler)
+	}
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Env = append(os.Environ(),
+		"GOARCH="+p.ctxt.GOARCH,
+		"GOOS="+p.ctxt.GOOS,
+		"GOROOT="+p.ctxt.GOROOT,
+		"GOPATH="+p.ctxt.GOPATH,
+	)
+
+	go func() {
+		cmd.Run()
+	}()
 
 	p.packages[bp.ImportPath] = pkg
 	return pkg, nil
