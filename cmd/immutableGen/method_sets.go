@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 	"go/types"
 	"strings"
 	"unicode"
@@ -39,28 +40,17 @@ func (o *output) calcMethodSets() {
 				return p.Name()
 			})
 		}
-		possInvalidTypeToString := func(t types.Type) string {
+		varTypeString := func(v *types.Var) string {
 
-			var tn string
-			if typeIsInvalid(t) {
-				// TODO: bit gross....
-				var fte ast.Expr
-				for e, tv := range o.info.Types {
-					if tv.Type == t {
-						if fte != nil {
-							panic(fmt.Errorf("had two entries for the same invalid type; what to do?: %v and %v", fte, e))
-						}
-						fte = e
-					}
-				}
-				if fte == nil {
-					panic(fmt.Errorf("could not resolve expression for invalid type"))
-				}
-				tn = o.exprString(fte)
-			} else {
-				tn = typeToString(t)
+			if !typeIsInvalid(v.Type()) {
+				return typeToString(v.Type())
 			}
-			return tn
+
+			f, err := o.findFieldFromVar(v)
+			if err != nil {
+				panic(fmt.Errorf("failed to findFieldFromVar: %v", err))
+			}
+			return o.exprString(f.Type)
 		}
 
 		for _, is := range fts.structs {
@@ -168,8 +158,9 @@ func (o *output) calcMethodSets() {
 							if r, _ := utf8.DecodeRuneInString(name); unicode.IsLower(r) {
 								continue
 							}
+							typStr := varTypeString(f)
 							addPoss(name, field{
-								typ:  possInvalidTypeToString(f.Type()),
+								typ:  typStr,
 								path: []string{name + "()"},
 							})
 
@@ -177,6 +168,7 @@ func (o *output) calcMethodSets() {
 								next = append(next, embedded{
 									path: append(append([]string(nil), h.path...), name+"()"),
 									typ:  f.Type(),
+									es:   typStr,
 								})
 							}
 						}
@@ -186,15 +178,17 @@ func (o *output) calcMethodSets() {
 							if !f.Exported() {
 								continue
 							}
+							typStr := varTypeString(f)
 							name := f.Name()
 							addPoss(name, field{
-								typ:  possInvalidTypeToString(f.Type()),
+								typ:  typStr,
 								path: []string{name},
 							})
 							if f.Anonymous() {
 								next = append(next, embedded{
 									path: append(append([]string(nil), h.path...), name),
 									typ:  f.Type(),
+									es:   typStr,
 								})
 							}
 						}
@@ -227,4 +221,54 @@ func (o *output) calcMethodSets() {
 			debugf("===============\n")
 		}
 	}
+}
+
+func (o *output) findFieldFromVar(v *types.Var) (field *ast.Field, err error) {
+	defer func() {
+		if v := recover(); v != nil {
+			if vf, ok := v.(*ast.Field); ok {
+				field = vf
+			} else {
+				err = fmt.Errorf("unknown error: %v", v)
+			}
+		}
+	}()
+
+	var file *ast.File
+
+	pos := o.fset.Position(v.Pos())
+
+	for af := range o.files {
+		if o.fset.Position(af.Pos()).Filename == pos.Filename {
+			file = af
+		}
+	}
+
+	if file == nil {
+		return nil, fmt.Errorf("failed to resolve %v to an *ast.File", pos)
+	}
+
+	ff := &fieldFinder{
+		pos: v.Pos(),
+	}
+
+	ast.Walk(ff, file)
+
+	return
+}
+
+type fieldFinder struct {
+	pos token.Pos
+	f   *ast.Field
+}
+
+func (f *fieldFinder) Visit(n ast.Node) ast.Visitor {
+	if n.Pos() == f.pos {
+		f := n.(*ast.Field)
+		panic(f)
+	}
+	if n.Pos() <= f.pos && f.pos <= n.End() {
+		return f
+	}
+	return nil
 }

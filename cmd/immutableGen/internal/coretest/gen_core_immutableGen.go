@@ -1498,6 +1498,15 @@ func (s *Embed1) SetNowA(n time.Time) *Embed1 {
 	v0 := s.SetNonImmStructA(v1)
 	return v0
 }
+func (s *Embed1) Other() *Other {
+	return s.NonImmStruct().Other
+}
+func (s *Embed1) SetOther(n *Other) *Embed1 {
+	v1 := s.NonImmStruct()
+	v1.Other = n
+	v0 := s.SetNonImmStruct(v1)
+	return v0
+}
 func (s *Embed1) OtherA() *pkga.OtherA {
 	return s.NonImmStructA().OtherA
 }
@@ -1505,6 +1514,16 @@ func (s *Embed1) SetOtherA(n *pkga.OtherA) *Embed1 {
 	v1 := s.NonImmStructA()
 	v1.OtherA = n
 	v0 := s.SetNonImmStructA(v1)
+	return v0
+}
+func (s *Embed1) OtherName() string {
+	return s.NonImmStruct().Other.OtherName()
+}
+func (s *Embed1) SetOtherName(n string) *Embed1 {
+	v2 := s.NonImmStruct().Other.SetOtherName(n)
+	v1 := s.NonImmStruct()
+	v1.Other = v2
+	v0 := s.SetNonImmStruct(v1)
 	return v0
 }
 func (s *Embed1) OtherNameA() string {

@@ -22,13 +22,15 @@ type pkgInfo struct {
 	Name       string
 }
 
-func New(ctxt *build.Context, fset *token.FileSet, path, dir string) (*srcimporter.Importer, error) {
-	cmd := exec.Command("go", "list", "-deps", "-test", "-json", path)
+// New returns a go/types.ImporterFrom that uses installed package files if they
+// are non-Stale, dropping back to a src-based importer otherwise.
+func New(ctxt *build.Context, fset *token.FileSet, dir string) (*srcimporter.Importer, error) {
+	cmd := exec.Command("go", "list", "-deps", "-test", "-json", ".")
 	cmd.Dir = dir
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to start list for %v in %v: %v\n%v", path, dir, err, string(out))
+		return nil, fmt.Errorf("failed to start list in %v: %v\n%v", dir, err, string(out))
 	}
 
 	lookups := make(map[string]io.ReadCloser)
@@ -42,7 +44,7 @@ func New(ctxt *build.Context, fset *token.FileSet, path, dir string) (*srcimport
 			if io.EOF == err {
 				break
 			}
-			return nil, fmt.Errorf("failed to parse list for %v in %v: %v", path, dir, err)
+			return nil, fmt.Errorf("failed to parse list in %v: %v", dir, err)
 		}
 		if p.ImportPath == "unsafe" || p.Stale || p.Name == "main" {
 			continue

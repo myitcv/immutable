@@ -76,7 +76,7 @@ func basicTest(t *testing.T) {
 		t.Fatalf("failed to find Name constant")
 	}
 
-	imp, err := hybridimporter.New(&build.Default, fset, testPkg, ".")
+	imp, err := hybridimporter.New(&build.Default, fset, ".")
 	if err != nil {
 		fatalf("failed to create importer: %v", err)
 	}
