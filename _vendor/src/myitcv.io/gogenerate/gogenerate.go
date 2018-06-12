@@ -16,7 +16,6 @@ import (
 	"go/build"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -247,24 +246,16 @@ func DefaultLogLevel(f *string, ll LogLevel) {
 	}
 }
 
-// FilesContainingCmd returns a sorted list of Go file names (defined by go list as
-// GoFiles + CgoFiles + TestGoFiles + XTestGoFiles) in the directory dir that
-// contain a command matching any of the provided commands after quote and
-// variable expansion (as described by go generate -help). When comparing commands,
-// the filepath.Base of each is compared. The file names will, by definition, be
-// relative to dir
-func FilesContainingCmd(dir string, commands ...string) ([]string, error) {
+// FilesContainingCmd returns a map of Go file name (defined by go list as
+// GoFiles + CgoFiles + TestGoFiles + XTestGoFiles) in the directory dir, to a
+// count of the number of times directive command appears in that file.  (after
+// quote and variable expansion as described by go generate -help). When
+// comparing commands, the filepath.Base of each is compared. The file names
+// will, by definition, be relative to dir
+func FilesContainingCmd(dir string, command string) (map[string]int, error) {
 
-	// clean our commands
-	nonZero := false
-	for i, c := range commands {
-		c = strings.TrimSpace(c)
-		if c != "" {
-			nonZero = true
-		}
-		commands[i] = filepath.Base(c)
-	}
-	if !nonZero {
+	command = filepath.Base(strings.TrimSpace(command))
+	if command == "" {
 		return nil, nil
 	}
 
@@ -281,14 +272,12 @@ func FilesContainingCmd(dir string, commands ...string) ([]string, error) {
 	gofiles = append(gofiles, pkg.TestGoFiles...)
 	gofiles = append(gofiles, pkg.XTestGoFiles...)
 
-	matchMap := make(map[string]struct{})
+	matchMap := make(map[string]int)
 
 	for _, f := range gofiles {
 		checkMatch := func(line int, args []string) error {
-			for _, cmd := range commands {
-				if filepath.Base(args[0]) == cmd {
-					matchMap[f] = struct{}{}
-				}
+			if filepath.Base(args[0]) == command {
+				matchMap[f] += 1
 			}
 
 			return nil
@@ -301,12 +290,5 @@ func FilesContainingCmd(dir string, commands ...string) ([]string, error) {
 		}
 	}
 
-	matches := make([]string, 0, len(matchMap))
-	for k := range matchMap {
-		matches = append(matches, k)
-	}
-	sort.Slice(matches, func(i, j int) bool {
-		return filepath.Base(matches[i]) < filepath.Base(matches[j])
-	})
-	return matches, nil
+	return matchMap, nil
 }
