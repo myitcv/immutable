@@ -17,21 +17,31 @@ import (
 
 type pkgInfo struct {
 	ImportPath string
-	Target     string
+	Export     string
 	Stale      bool
 	Name       string
 }
 
-// New returns a go/types.ImporterFrom that uses installed package files if they
-// are non-Stale, dropping back to a src-based importer otherwise.
+// New returns a go/types.ImporterFrom that uses build cache package files if they
+// are available (i.e. compile), dropping back to a src-based importer otherwise.
 func New(ctxt *build.Context, fset *token.FileSet, dir string) (*srcimporter.Importer, error) {
-	cmd := exec.Command("go", "list", "-deps", "-test", "-json", ".")
+	cmd := exec.Command("go", "list", "-deps", "-test", "-json", "-e", "-export", ".")
 	cmd.Dir = dir
 
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("failed to start list in %v: %v\n%v", dir, err, string(out))
-	}
+	// Because of https://github.com/golang/go/issues/25842 we first need to
+	// check whether we can parse the output - and even then, only the output in
+	// stdout - if we can, for now, we take that as a sign of success. When
+	// #25842 is resolve we can add back the check for the exit code indicating
+	// success/failure, and also read CombinedOutput
+
+	out, _ := cmd.Output()
+
+	// if err != nil {
+	// 	if ad, err := filepath.Abs(dir); err == nil {
+	// 		dir = ad
+	// 	}
+	// 	return nil, fmt.Errorf("failed to %v in %v: %v\n%v", strings.Join(cmd.Args, " "), dir, err, string(out))
+	// }
 
 	lookups := make(map[string]io.ReadCloser)
 
@@ -46,12 +56,12 @@ func New(ctxt *build.Context, fset *token.FileSet, dir string) (*srcimporter.Imp
 			}
 			return nil, fmt.Errorf("failed to parse list in %v: %v", dir, err)
 		}
-		if p.ImportPath == "unsafe" || p.Stale || p.Name == "main" {
+		if p.ImportPath == "unsafe" || p.Export == "" || p.Name == "main" {
 			continue
 		}
-		fi, err := os.Open(p.Target)
+		fi, err := os.Open(p.Export)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open %v: %v", p.Target, err)
+			return nil, fmt.Errorf("failed to open %v: %v", p.Export, err)
 		}
 		lookups[p.ImportPath] = fi
 	}

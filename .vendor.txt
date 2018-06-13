@@ -1,5 +1,5 @@
     ./_vendor/src/github.com/kisielk/gotool  80517062f582ea3340cd4baf70e86d539ae7d84d  git@github.com:kisielk/gotool
-    ./_vendor/src/myitcv.io/gg               f7f0107f99acf2e27cca892b6f07a75c6de20528  git@github.com:myitcv/gg              go1.11
+    ./_vendor/src/myitcv.io/gg               bd9c36ce4f1e8632cebc39da85ee037e768c2202  git@github.com:myitcv/gg              go1.11
     ./_vendor/src/myitcv.io/gogenerate       8ad09dd98465cdb14438b1f82397ad8eb745ec01  git@github.com:myitcv/gogenerate
-    ./_vendor/src/myitcv.io/hybridimporter   15f0bc74d82ec1c22349e172471113b85814a38c  git@github.com:myitcv/hybridimporter
+    ./_vendor/src/myitcv.io/hybridimporter   05d8282d4f611ba98dcafc5d1ea5ac92f7e8a2ff  git@github.com:myitcv/hybridimporter
     ./_vendor/src/golang.org/x/tools         721f218496963f33ebc9fbc5cdbdeed007ad9c49  https://go.googlesource.com/tools
