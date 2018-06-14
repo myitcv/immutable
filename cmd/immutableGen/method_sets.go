@@ -95,6 +95,11 @@ func (o *output) calcMethodSets() {
 					case *immStruct:
 						// here the fields do _not_ have a prefix
 
+						impf := &importFinder{
+							imports: it.file.Imports,
+							matches: fts.imports,
+						}
+
 						for _, f := range it.fields {
 							if h.typ == nil {
 								// we are at the first level of a struct
@@ -110,6 +115,9 @@ func (o *output) calcMethodSets() {
 									doc:  f.field.Doc,
 								})
 							} else {
+								// typeToString adds required imports; for ast-walked
+								// types we need to use importFinder
+								impf.Visit(f.field.Type)
 								addPoss(f.name, field{
 									path: []string{f.name + "()"},
 									typ:  o.exprString(f.field.Type),
