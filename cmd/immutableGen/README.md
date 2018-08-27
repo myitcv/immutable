@@ -1,4 +1,7 @@
-immutableGen is a `go generate` generator that creates immutable struct, map and slice type declarations from template
-type declarations.
+## `** myitcv.io/immutable/cmd/immutableGen **` has moved
 
-See [the `immutableGen` wiki](https://myitcv.io/immutable/wiki/immutableGen) for more details.
+The repository hosting `myitcv.io/immutable/cmd/immutableGen` has changed.
+
+`myitcv.io/immutable/cmd/immutableGen` can now be found at:
+
+https://github.com/myitcv/x/tree/master/immutable/cmd/immutableGen
